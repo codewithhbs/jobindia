@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
-import { Screen, Loader, EmptyState } from '../../components/ui';
+import { Screen, Loader, EmptyState } from '../../components/ui/Screen';
 import { Header } from '../../components/ui/Header';
 import { JobCard } from '../../components/cards/JobCard';
 import { COLORS, SPACING } from '../../constants/theme';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Screen, Input, Card, Loader, Badge } from '../../components/ui';
+
 import { Header } from '../../components/ui/Header';
 import { Button } from '../../components/ui/Button';
 import { COLORS, SPACING, FONTS } from '../../constants/theme';
@@ -9,6 +9,8 @@ import { employerApi } from '../../api/employer.api';
 import { useFetch } from '../../hooks/useFetch';
 import { useAuthStore } from '../../store/authStore';
 import { toast } from '../../utils/toast';
+import { Loader, Screen } from '../../components/ui/Screen';
+import { Badge, Card, Input } from '../../components/ui';
 
 export function EmployerProfileScreen({ navigation }) {
   const logout = useAuthStore((s) => s.logout);

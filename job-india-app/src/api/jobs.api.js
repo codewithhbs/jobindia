@@ -3,7 +3,6 @@ import client, { unwrap } from './client';
 export const jobsApi = {
   list: (params) => client.get('/jobs', { params }).then((r) => r.data),
   recomended: (params) => client.get('/jobs/for-home', { params }).then((r) => r.data),
-
   nearby: (params) => unwrap(client.get('/jobs/nearby', { params })),
   get: (id) => unwrap(client.get(`/jobs/${id}`)),
   create: (body) => unwrap(client.post('/jobs', body)),

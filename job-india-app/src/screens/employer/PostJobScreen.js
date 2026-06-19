@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { Screen, Input, Card, Chip } from '../../components/ui';
-import { Header } from '../../components/ui/Header';
-import { Button } from '../../components/ui/Button';
+
 import { COLORS, SPACING, FONTS } from '../../constants/theme';
 import { jobsApi } from '../../api/jobs.api';
 import { JOB_TYPES } from '../../constants/config';
 import { toast } from '../../utils/toast';
+import { Screen } from '../../components/ui/Screen';
+import { Header } from '../../components/ui/Header';
+import { Card, Chip, Input } from '../../components/ui';
+import { Button } from '../../components/ui/Button';
 
 export function PostJobScreen({ navigation }) {
   const [form, setForm] = useState({

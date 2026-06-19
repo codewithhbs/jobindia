@@ -3,17 +3,18 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS } from '../constants/theme';
-import { EmployerDashboardScreen } from '../screens/employer/EmployerDashboardScreen';
 import { MyJobsScreen } from '../screens/employer/MyJobsScreen';
 import { PostJobScreen } from '../screens/employer/PostJobScreen';
 import { JobApplicantsScreen } from '../screens/employer/JobApplicantsScreen';
 import { EmployerProfileScreen } from '../screens/employer/EmployerProfileScreen';
 import { PlansScreen } from '../screens/employer/PlansScreen';
 import NotificationsScreen from '../screens/common/NotificationsScreen';
-import { SettingsScreen } from '../screens/common/SettingsScreen';
-import { SupportScreen } from '../screens/common/SupportScreen';
-import { CmsScreen } from '../screens/common/CmsScreen';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import SettingsScreen from '../screens/common/SettingsScreen';
+import SupportScreen from '../screens/common/SupportScreen';
+import CmsScreen from '../screens/common/CmsScreen';
+import EmployerDashboardScreen from '../screens/employer/EmployerDashboardScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();

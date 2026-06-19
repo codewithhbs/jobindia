@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Screen } from '../../components/ui/Screen';
-import { Header } from '../../components/ui/Header';
+
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants/theme';
 import { useAuthStore } from '../../store/authStore';
 import { authApi } from '../../api/auth.api';
 import { toast } from '../../utils/toast';
+import { Screen } from '../../components/ui/Screen';
+import { Header } from '../../components/ui/Header';
 
 export default function SettingsScreen({ navigation }) {
   const logout = useAuthStore((s) => s.logout);

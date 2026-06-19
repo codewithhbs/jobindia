@@ -59,10 +59,10 @@ function rankJob(job, profile) {
 // POST /api/v1/jobs
 exports.createJob = async (req, res, next) => {
   try {
-    console.log(req.body)
+
     const { title, description, category, salary, location, requirements, vacancies, jobType, dynamicFields, applicationDeadline, benefits, tags } = req.body;
     const { userId, role } = req.user;
-    console.log(req.user)
+
     if (!['employer', 'admin', 'superadmin'].includes(role)) {
       throw new AppError('Only employers can post jobs', 403);
     }
@@ -89,7 +89,6 @@ exports.createJob = async (req, res, next) => {
 exports.getRecommendedJobs = async (req, res, next) => {
   try {
     const { search, category } = req.query;
-    console.log(search)
     const filter = {
       status: 'active',
     };
@@ -149,7 +148,7 @@ exports.getJobs = async (req, res, next) => {
       experience, isRemote,
       sortBy = 'createdAt'
     } = req.query;
-    console.log(admin)
+    console.log(category)
     let filter;
 
     if (admin === 'true') {

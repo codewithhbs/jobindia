@@ -50,8 +50,10 @@ export function RootNavigator() {
     isLoading,
     isAuthenticated,
     role,
+    user,
     bootstrap,
   } = useAuthStore();
+
 
   useEffect(() => {
     bootstrap();
@@ -83,7 +85,7 @@ export function RootNavigator() {
       theme={navTheme}
     >
       {isAuthenticated ? (
-        <RoleStack role={role} />
+        <RoleStack role={user?.userId?.role || "jobseeker"} />
       ) : (
         <AuthNavigator />
       )}

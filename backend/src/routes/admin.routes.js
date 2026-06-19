@@ -34,7 +34,7 @@ router.put('/categories/:id', authenticate, isAdmin, adminController.updateCateg
 router.get('/cms', authenticate, isAdmin, adminController.listCMSPages);
 router.post('/cms', authenticate, isAdmin, adminController.upsertCMSPage);
 
-router.put('/onboarding/:id', authenticate, isAdmin, upload.single("onboardImage"), processUpload("images"), adminController.updateOnboarding);
+router.put('/onboarding/:id', upload.single("onboardImage"), processUpload("images"), adminController.updateOnboarding);
 router.post('/onboarding', authenticate, isAdmin, upload.single("onboardImage"), processUpload("images"), adminController.createOnboarding);
 router.delete('/onboarding/:id', authenticate, isAdmin, adminController.deleteOnboarding);
 

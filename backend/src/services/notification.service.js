@@ -56,7 +56,7 @@ const sendToUser = async ({ userId, title, body, type = 'push', category = 'gene
   } catch (err) {
     // Drop dead tokens so we stop trying them.
     if (err.code === INVALID_TOKEN) {
-      await User.updateOne({ _id: userId }, { $unset: { fcmToken: 1 } }).catch(() => {});
+      await User.updateOne({ _id: userId }, { $unset: { fcmToken: 1 } }).catch(() => { });
     }
     logger.error(`FCM send failed (user ${userId}): ${err.message}`);
   }
@@ -85,6 +85,7 @@ const broadcast = async ({ title, body, targetRole, category = 'promotion', data
     if (targetRole) filter.role = targetRole;
 
     const users = await User.find(filter).select('fcmToken');
+    console.log(users)
     const tokens = users.map((u) => u.fcmToken).filter(Boolean);
     if (tokens.length === 0) {
       logger.info(`Broadcast "${title}" -> no devices`);
@@ -108,17 +109,27 @@ const broadcast = async ({ title, body, targetRole, category = 'promotion', data
       sent += res.successCount;
       failed += res.failureCount;
       res.responses.forEach((r, idx) => {
-        if (!r.success && r.error?.code === INVALID_TOKEN) invalid.push(batch[idx]);
+        if (!r.success) {
+          console.log('FCM Error:', {
+            token: batch[idx],
+            code: r.error?.code,
+            message: r.error?.message,
+          });
+
+          if (r.error?.code === INVALID_TOKEN) {
+            invalid.push(batch[idx]);
+          }
+        }
       });
     }
 
     if (invalid.length) {
-      await User.updateMany({ fcmToken: { $in: invalid } }, { $unset: { fcmToken: 1 } }).catch(() => {});
+      await User.updateMany({ fcmToken: { $in: invalid } }, { $unset: { fcmToken: 1 } }).catch(() => { });
     }
 
     notification.isSent = true;
     notification.sentAt = new Date();
-    await notification.save().catch(() => {});
+    await notification.save().catch(() => { });
     logger.info(`Broadcast "${title}" -> sent ${sent}, failed ${failed} (${invalid.length} pruned)`);
   } catch (err) {
     logger.error(`Broadcast failed: ${err.message}`);

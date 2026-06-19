@@ -166,7 +166,7 @@ exports.getOnboarding = async (req, res, next) => {
       const item = screen.toObject();
 
       if (item.image) {
-        item.image = `${process.env.BASE_URL}${item.image}`;
+        item.image = `${process.env.IMAGE_IP}${item.image}`;
       }
 
       return item;

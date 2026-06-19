@@ -18,10 +18,11 @@ import CmsScreen from '../screens/common/CmsScreen';
 import HomeScreen from '../screens/jobseeker/HomeScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BasicDetails from '../screens/jobseeker/BasicDetails';
+import JobsList from '../screens/jobseeker/JobsList';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const ICONS = { Home: 'home', Applications: 'document-text', Dashboard: 'stats-chart', Account: 'person' };
+const ICONS = { Home: 'home', Jobs: 'briefcase', Applications: 'document-text', Dashboard: 'stats-chart', Account: 'person' };
 
 function Tabs() {
   const insets = useSafeAreaInsets();
@@ -43,6 +44,8 @@ function Tabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Jobs" component={JobsList} />
+
       <Tab.Screen name="Applications" component={ApplicationsScreen} />
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Account" component={ProfileScreen} />
@@ -63,6 +66,9 @@ export function JobSeekerNavigator() {
       <Stack.Screen name="Support" component={SupportScreen} />
       <Stack.Screen name="basicdetails" component={BasicDetails} />
       <Stack.Screen name="Cms" component={CmsScreen} />
+      <Stack.Screen name="JobsList" component={JobsList} />
+
+
 
     </Stack.Navigator>
   );

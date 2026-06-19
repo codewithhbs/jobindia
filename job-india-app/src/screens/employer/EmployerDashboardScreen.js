@@ -1,14 +1,16 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Screen, Loader, Card, Badge } from '../../components/ui';
-import { Button } from '../../components/ui/Button';
+
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants/theme';
 import { employerApi } from '../../api/employer.api';
 import { useFetch } from '../../hooks/useFetch';
 import { useAuthStore } from '../../store/authStore';
+import { Loader, Screen } from '../../components/ui/Screen';
+import { Badge, Card } from '../../components/ui';
+import { Button } from '../../components/ui/Button';
 
-export function EmployerDashboardScreen({ navigation }) {
+export default function EmployerDashboardScreen({ navigation }) {
   const user = useAuthStore((s) => s.user);
   const { data, loading, refetch } = useFetch(() => employerApi.dashboard(), []);
   const [refreshing, setRefreshing] = useState(false);
