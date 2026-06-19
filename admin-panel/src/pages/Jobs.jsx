@@ -1,0 +1,237 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { API } from '../lib/api';
+import { useFetch } from './_useFetch';
+import { Spinner, Table, Badge } from '../components/ui';
+
+const PAGE_SIZE = 20;
+const JOB_TYPES = ['full_time', 'part_time', 'contract', 'freelance', 'internship'];
+const SORT_OPTIONS = [
+  { value: 'createdAt', label: 'Newest first' },
+  { value: 'salary', label: 'Highest salary' },
+  { value: 'relevance', label: 'Relevance (needs search)' },
+];
+
+const DEFAULT_FILTERS = {
+  search: '', category: '', jobType: '', city: '', state: '',
+  isRemote: '', salaryMin: '', salaryMax: '', sortBy: 'createdAt',
+};
+
+export default function Jobs() {
+  const navigate = useNavigate();
+  const [categories, setCategories] = useState([]);
+  const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [searchInput, setSearchInput] = useState('');
+
+  // Debounce the search box -> filters.search, resetting to page 1.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setFilters((f) => ({ ...f, search: searchInput }));
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    API.categories.list().then(setCategories).catch(() => { });
+  }, []);
+
+  const updateFilter = (key) => (value) => {
+    setFilters((f) => ({ ...f, [key]: value }));
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    setSearchInput('');
+    setPage(1);
+  };
+
+  const hasActiveFilters = Object.entries(filters).some(
+    ([k, v]) => v && !(k === 'sortBy' && v === 'createdAt')
+  );
+
+  const { data, loading, refetch } = useFetch(
+    () =>
+      API.jobs.list({
+        page,
+        limit: PAGE_SIZE,
+        admin: true,
+        search: filters.search || undefined,
+        category: filters.category || undefined,
+        jobType: filters.jobType || undefined,
+        city: filters.city || undefined,
+        state: filters.state || undefined,
+        isRemote: filters.isRemote || undefined,
+        salaryMin: filters.salaryMin || undefined,
+        salaryMax: filters.salaryMax || undefined,
+        sortBy: filters.sortBy,
+      }),
+    [page, filters]
+  );
+  const updateJobField = async (id, updates) => {
+    try {
+      const row = rows.find(x => x._id === id);
+
+      await API.manage.updateJob(id, {
+        status: updates.status ?? row.status,
+        isFeatured: updates.isFeatured ?? row.isFeatured,
+      });
+
+      toast.success('Updated');
+      refetch();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+  const remove = async (id) => {
+    if (!confirm('Delete this job?')) return;
+    try { await API.jobs.remove(id); toast.success('Deleted'); refetch(); } catch (e) { toast.error(e.message); }
+  };
+
+  const rows = data?.data || [];
+  const pagination = data?.pagination || { total: 0, page: 1, pages: 1 };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-extrabold">Jobs</h1>
+        <button className="btn-primary" onClick={() => navigate('/jobs/new')}><Plus size={18} /> Create Job</button>
+      </div>
+
+      {/* ---- Filters bar ---- */}
+      <div className="card space-y-3 p-4">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            className="input pl-9"
+            placeholder="Search by title, skills, description..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <select className="input" value={filters.category} onChange={(e) => updateFilter('category')(e.target.value)}>
+            <option value="">All categories</option>
+            {categories.map((c) => {
+              const v = c.name || c;
+              return <option key={c._id || v} value={v}>{v}</option>;
+            })}
+          </select>
+
+          <select className="input" value={filters.jobType} onChange={(e) => updateFilter('jobType')(e.target.value)}>
+            <option value="">All job types</option>
+            {JOB_TYPES.map((t) => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+          </select>
+
+          <input className="input" placeholder="City" value={filters.city} onChange={(e) => updateFilter('city')(e.target.value)} />
+          <input className="input" placeholder="State" value={filters.state} onChange={(e) => updateFilter('state')(e.target.value)} />
+
+          <select className="input" value={filters.isRemote} onChange={(e) => updateFilter('isRemote')(e.target.value)}>
+            <option value="">Remote & on-site</option>
+            <option value="true">Remote only</option>
+          </select>
+
+          <select className="input" value={filters.sortBy} onChange={(e) => updateFilter('sortBy')(e.target.value)}>
+            {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <input
+            type="number" className="input" placeholder="Salary min ₹/mo"
+            value={filters.salaryMin} onChange={(e) => updateFilter('salaryMin')(e.target.value)}
+          />
+          <input
+            type="number" className="input" placeholder="Salary max ₹/mo"
+            value={filters.salaryMax} onChange={(e) => updateFilter('salaryMax')(e.target.value)}
+          />
+          {hasActiveFilters && (
+            <button onClick={clearFilters} className="btn-ghost flex items-center gap-1 justify-self-start">
+              <X size={14} /> Clear filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {loading ? <Spinner /> : (
+        <>
+          <Table
+            columns={['Title', 'Company', 'Category', 'Featured', 'Status', 'Actions']}
+            rows={rows}
+            empty="No jobs found"
+            renderRow={(j) => (
+              <tr key={j._id}>
+                <td className="td font-semibold">{j.title}</td>
+                <td className="td">{j.companyName || '—'}</td>
+                <td className="td">{j.category || '—'}</td>
+                <td className="td">
+                  <input
+                    type="checkbox"
+                    checked={j.isFeatured}
+                    onChange={(e) =>
+                      updateJobField(j._id, {
+                        isFeatured: e.target.checked
+                      })
+                    }
+                  />
+                </td>
+
+                <td className="td">
+                  <select
+                    className="input !py-1"
+                    value={j.status}
+                    onChange={(e) => updateJobField(j._id, {
+                      status: e.target.value
+                    })}
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="active">Active</option>
+                    <option value="paused">Paused</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </td>
+                <td className="td">
+                  <div className="flex gap-2">
+                    <button onClick={() => navigate(`/jobs/${j._id}/edit`)} className="btn-outline !py-1.5 !px-3 text-xs">Edit</button>
+                    <button onClick={() => remove(j._id)} className="btn-danger !py-1.5 !px-3 text-xs">Delete</button>
+                  </div>
+                </td>
+              </tr>
+            )}
+          />
+
+          {/* ---- Pagination ---- */}
+          {pagination.total > 0 && (
+            <div className="flex items-center justify-between text-sm text-gray-500">
+              <span>
+                Showing {(pagination.page - 1) * PAGE_SIZE + 1}–{Math.min(pagination.page * PAGE_SIZE, pagination.total)} of {pagination.total} jobs
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  className="btn-outline !py-1.5 !px-3 text-xs flex items-center gap-1 disabled:opacity-40"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft size={14} /> Prev
+                </button>
+                <span className="px-2">Page {pagination.page} of {pagination.pages || 1}</span>
+                <button
+                  className="btn-outline !py-1.5 !px-3 text-xs flex items-center gap-1 disabled:opacity-40"
+                  disabled={page >= pagination.pages}
+                  onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,109 @@
+# =========================
+# Dependencies
+# =========================
+node_modules/
+**/node_modules/
+
+# =========================
+# Environment Files
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================
+# Build Outputs
+# =========================
+dist/
+build/
+coverage/
+.vite/
+
+# =========================
+# React Native / Expo
+# =========================
+job-india-app/.expo/
+job-india-app/android/.gradle/
+job-india-app/android/app/build/
+job-india-app/android/build/
+job-india-app/android/.cxx/
+job-india-app/android/local.properties
+job-india-app/ios/build/
+job-india-app/ios/Pods/
+job-india-app/ios/.xcode.env.local
+
+# Metro
+.expo-shared/
+.metro-health-check*
+
+# =========================
+# Android
+# =========================
+*.keystore
+*.jks
+*.apk
+*.aab
+
+# =========================
+# iOS
+# =========================
+DerivedData/
+*.xcworkspace
+
+# =========================
+# VS Code
+# =========================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Backend Uploads
+# =========================
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# =========================
+# Firebase
+# =========================
+google-services.json
+GoogleService-Info.plist
+firebase-adminsdk*.json
+backend/*firebase-adminsdk*.json
+backend/jobindia-dd491-firebase-adminsdk-fbsvc-5a175506eb
+# =========================
+# Cache
+# =========================
+.cache/
+.parcel-cache/
+.tmp/
+.temp/
+
+# =========================
+# Testing
+# =========================
+coverage/
+jest-cache/
+
+# =========================
+# Misc
+# =========================
+*.pid
+*.seed
+*.tgz

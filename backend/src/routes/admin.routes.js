@@ -1,0 +1,56 @@
+const express = require('express');
+const router = express.Router();
+const adminController = require('../controllers/admin.controller');
+const { authenticate, authorize } = require('../middleware/authenticate');
+const { upload, processUpload } = require('../middleware/upload.middleware');
+
+const isAdmin = authorize(['admin', 'superadmin']);
+
+// Public (mobile app fetches these without auth)
+router.get('/settings/public', adminController.getPublicSettings);
+router.get('/categories', adminController.getCategories);
+router.get('/onboarding', adminController.getOnboarding);
+router.get('/cms/:slug', adminController.getCMSPage);
+router.get('/faqs', adminController.getFAQs);
+router.get('/plans', adminController.getPlans);
+
+// Mobile app: get dynamic form fields (auth required)
+router.get('/forms/fields', authenticate, adminController.getFormFields);
+
+// Admin-only routes
+router.get('/settings', authenticate, isAdmin, adminController.getAllSettings);
+router.post('/settings', authenticate, isAdmin, adminController.upsertSetting);
+router.put('/settings/bulk', authenticate, isAdmin, adminController.bulkUpdateSettings);
+
+router.get('/forms/fields/all', authenticate, isAdmin, adminController.getFormFields);
+router.post('/forms/fields', authenticate, isAdmin, adminController.createFormField);
+router.put('/forms/fields/:id', authenticate, isAdmin, adminController.updateFormField);
+router.delete('/forms/fields/:id', authenticate, isAdmin, adminController.deleteFormField);
+router.post('/forms/fields/reorder', authenticate, isAdmin, adminController.reorderFormFields);
+
+router.post('/categories', authenticate, isAdmin, adminController.createCategory);
+router.put('/categories/:id', authenticate, isAdmin, adminController.updateCategory);
+
+router.get('/cms', authenticate, isAdmin, adminController.listCMSPages);
+router.post('/cms', authenticate, isAdmin, adminController.upsertCMSPage);
+
+router.put('/onboarding/:id', authenticate, isAdmin, upload.single("onboardImage"), processUpload("images"), adminController.updateOnboarding);
+router.post('/onboarding', authenticate, isAdmin, upload.single("onboardImage"), processUpload("images"), adminController.createOnboarding);
+router.delete('/onboarding/:id', authenticate, isAdmin, adminController.deleteOnboarding);
+
+router.post('/faqs', authenticate, isAdmin, adminController.createFAQ);
+router.put('/faqs/:id', authenticate, isAdmin, adminController.updateFAQ);
+router.delete('/faqs/:id', authenticate, isAdmin, adminController.deleteFAQ);
+
+router.post('/plans', authenticate, isAdmin, adminController.upsertPlan);
+
+router.post('/home-sliders',upload.single("image"), processUpload("homeslider"), authenticate, isAdmin, adminController.createHomeSlider);
+router.put('/home-sliders/:id',upload.single("image"), processUpload("homeslider"), authenticate, isAdmin, adminController.updateHomeSlider);
+router.delete('/home-sliders/:id',  authenticate, isAdmin, adminController.deleteHomeSlider);
+router.get('/home-sliders', adminController.getHomeSliders);
+router.get('/home-sliders/:id', adminController.getHomeSlider);
+
+
+
+
+module.exports = router;
