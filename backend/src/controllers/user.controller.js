@@ -26,6 +26,15 @@ exports.getProfile = catchAsync(async (req, res, next) => {
   ok(res, { user, profile });
 });
 
+
+// GET /api/v1/users/profile/:id — self, with the role profile attached
+exports.getUniversalProfile = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.params.id).select('-__v -deviceInfo -isKYCVerified -isEmailVerified -isPhoneVerified -fcmToken');
+  if (!user) return next(new AppError('User not found', 404));
+  const profile = await loadProfile(user);
+  ok(res, { user, profile });
+});
+
 // PUT /api/v1/users/me/profile — basic identity + avatar + device + location
 exports.updateProfile = catchAsync(async (req, res, next) => {
   const uploaded = req.uploadedFiles

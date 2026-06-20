@@ -89,7 +89,7 @@ export function RootNavigator() {
       ) : (
         <AuthNavigator />
       )}
-          
+
     </NavigationContainer>
   );
 }

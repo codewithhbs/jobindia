@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const jobSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true, index: 'text' },
   description: { type: String, required: true },
-  employerId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+  employerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
   employerName: String,
   companyName: String,
   companyLogo: String,
@@ -62,7 +62,7 @@ const jobSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['draft', 'active', 'paused', 'closed', 'expired','verified','rejected'],
+    enum: ['draft', 'active', 'paused', 'closed', 'expired', 'verified', 'rejected'],
     default: 'draft',
     index: true
   },
@@ -97,7 +97,10 @@ const applicationSchema = new mongoose.Schema({
   jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', required: true, index: true },
   jobTitle: String,
   employerId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
-  applicantId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+  applicantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User', required: true, index: true
+  },
   applicantName: String,
   applicantPhone: String,
 

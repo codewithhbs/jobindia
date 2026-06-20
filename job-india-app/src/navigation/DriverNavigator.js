@@ -3,18 +3,18 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS } from '../constants/theme';
-import { JobDetailScreen } from '../screens/jobseeker/JobDetailScreen';
-import { JobMapScreen } from '../screens/jobseeker/JobMapScreen';
-import { ApplicationsScreen } from '../screens/jobseeker/ApplicationsScreen';
-import { DriverProfileScreen } from '../screens/driver/DriverProfileScreen';
+import ApplicationsScreen from '../screens/jobseeker/ApplicationsScreen';
+import  DriverProfileScreen from '../screens/driver/DriverProfileScreen';
 import NotificationsScreen from '../screens/common/NotificationsScreen';
-import { SettingsScreen } from '../screens/common/SettingsScreen';
-import { SupportScreen } from '../screens/common/SupportScreen';
-import { KycScreen } from '../screens/common/KycScreen';
-import { CmsScreen } from '../screens/common/CmsScreen';
+
 import HomeScreen from '../screens/jobseeker/HomeScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import JobDetailScreen from '../screens/jobseeker/JobDetailScreen';
+import JobMapScreen from '../screens/jobseeker/JobMapScreen';
+import SettingsScreen from '../screens/common/SettingsScreen';
+import SupportScreen from '../screens/common/SupportScreen';
+import KycScreen from '../screens/common/KycScreen';
+import CmsScreen from '../screens/common/CmsScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 const ICONS = { Jobs: 'car', Applications: 'document-text', Profile: 'person' };

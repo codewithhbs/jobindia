@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Switch, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Screen, Input, Card, Loader, Chip, Badge } from '../../components/ui';
 import { Header } from '../../components/ui/Header';
 import { Button } from '../../components/ui/Button';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants/theme';
@@ -10,6 +9,8 @@ import { driverApi } from '../../api/driver.api';
 import { useFetch } from '../../hooks/useFetch';
 import { useAuthStore } from '../../store/authStore';
 import { toast } from '../../utils/toast';
+import { Loader, Screen } from '../../components/ui/Screen';
+import { Badge, Card, Chip, Input } from '../../components/ui';
 
 const VEHICLES = ['bike', 'auto', 'car', 'van', 'truck'];
 const DOCS = [
@@ -19,7 +20,7 @@ const DOCS = [
   { id: 'drivingLicense_back', label: 'Licence Back' },
 ];
 
-export function DriverProfileScreen({ navigation }) {
+export default function DriverProfileScreen({ navigation }) {
   const logout = useAuthStore((s) => s.logout);
   const { data: profile, loading } = useFetch(() => driverApi.me(), []);
   const [form, setForm] = useState({ vehicleNumber: '', vehicleModel: '', licenseNumber: '', yearsOfExperience: '' });

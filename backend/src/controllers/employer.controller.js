@@ -19,9 +19,9 @@ exports.getMyProfile = catchAsync(async (req, res) => {
 exports.upsertProfile = catchAsync(async (req, res) => {
   const profile = await getOrInit(req.user.userId);
 
-  const allowed = [
+  const allowed = [ 
     'companyName', 'industry', 'companySize', 'website', 'description',
-    'foundedYear', 'contactPerson', 'gstNumber', 'panNumber', 'cinNumber', 'address',
+    'foundedYear', 'contactPerson', 'gstNumber', 'panNumber', 'address',
   ];
   for (const key of allowed) {
     if (req.body[key] !== undefined) {
@@ -32,6 +32,7 @@ exports.upsertProfile = catchAsync(async (req, res) => {
   }
   if (req.uploadedFiles?.companyLogo) profile.companyLogo = req.uploadedFiles.companyLogo;
 
+  profile.verificationStatus = "pending"
   await profile.save();
 
   // Mark account complete once a company name is set
@@ -120,4 +121,42 @@ exports.verifyEmployer = catchAsync(async (req, res, next) => {
   );
   if (!profile) return next(new AppError('Employer not found', 404));
   ok(res, profile, `Employer ${status}`);
+});
+
+
+// GET /api/v1/employers/:id — get single employer
+exports.getSingleEmployer = catchAsync(async (req, res, next) => {
+  const profile = await EmployerProfile.findOne(
+    { userId: req.params.id },
+  );
+  if (!profile) return next(new AppError('Employer not found', 404));
+  ok(res, profile, "fetched success");
+});
+
+// PUT /api/v1/employers/:id — admin uipdate
+
+exports.upsertProfileAdmin = catchAsync(async (req, res) => {
+  const profile = await getOrInit(req.params.id);
+
+  const allowed = [ 
+    'companyName', 'industry', 'companySize', 'website', 'description',
+    'foundedYear', 'contactPerson', 'gstNumber', 'panNumber', 'address',
+  ];
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) {
+      profile[key] = typeof req.body[key] === 'string' && ['contactPerson', 'address'].includes(key)
+        ? JSON.parse(req.body[key])
+        : req.body[key];
+    }
+  }
+  if (req.uploadedFiles?.companyLogo) profile.companyLogo = req.uploadedFiles.companyLogo;
+
+
+  await profile.save();
+
+  // Mark account complete once a company name is set
+  if (profile.companyName) {
+    await User.findByIdAndUpdate(req.user.userId, { isProfileComplete: true });
+  }
+  ok(res, profile, 'Company profile updated');
 });

@@ -18,5 +18,7 @@ router.get('/me/dashboard', authenticate, c.getDashboard);
 // admin
 router.get('/', authenticate, authorize(ADMIN_ROLES), c.listEmployers);
 router.put('/:id/verify', authenticate, authorize(ADMIN_ROLES), c.verifyEmployer);
+router.get('/:id', authenticate, authorize(ADMIN_ROLES), c.getSingleEmployer);
+router.put('/:id', authenticate, authorize(ADMIN_ROLES), upload.single('companyLogo'), processUpload('images'), c.upsertProfileAdmin);
 
 module.exports = router;

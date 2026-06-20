@@ -138,4 +138,69 @@ const broadcast = async ({ title, body, targetRole, category = 'promotion', data
   return notification;
 };
 
-module.exports = { sendToUser, broadcast };
+/**
+ * Send the same push to an explicit list of users (e.g. recommended seekers
+ * for a new job). Persists one in-app Notification per user via insertMany,
+ * then multicasts FCM in batches of 500 and prunes dead tokens. Designed to be
+ * called from the queue worker so large fan-outs never block a request.
+ */
+const sendToMany = async ({ userIds = [], title, body, type = 'push', category = 'general', data }) => {
+  const ids = [...new Set(userIds.map((id) => String(id)))];
+  if (ids.length === 0) return { count: 0 };
+
+  const docs = ids.map((userId) => ({
+    userId, title, body, type, category, data, targetType: 'user', isSent: false,
+  }));
+  const createdDocs = await Notification.insertMany(docs, { ordered: false }).catch((err) => {
+    logger.error(`sendToMany insert failed: ${err.message}`);
+    return [];
+  });
+
+  try {
+    const messaging = getMessaging();
+    if (!messaging || type !== 'push') {
+      if (!messaging) logger.warn('Firebase unavailable — multi-notification stored only');
+      return { count: createdDocs.length };
+    }
+
+    const users = await User.find({
+      _id: { $in: ids },
+      fcmToken: { $exists: true, $nin: [null, ''] },
+    }).select('fcmToken');
+
+    const tokens = users.map((u) => u.fcmToken).filter(Boolean);
+    if (tokens.length === 0) return { count: createdDocs.length };
+
+    let sent = 0;
+    let failed = 0;
+    const invalid = [];
+
+    for (let i = 0; i < tokens.length; i += 500) {
+      const batch = tokens.slice(i, i + 500);
+      // eslint-disable-next-line no-await-in-loop
+      const res = await messaging.sendEachForMulticast({
+        tokens: batch,
+        notification: { title, body },
+        data: toStringData({ ...data, category }),
+        android: androidOpts,
+        apns: apnsOpts,
+      });
+      sent += res.successCount;
+      failed += res.failureCount;
+      res.responses.forEach((r, idx) => {
+        if (!r.success && r.error?.code === INVALID_TOKEN) invalid.push(batch[idx]);
+      });
+    }
+
+    if (invalid.length) {
+      await User.updateMany({ fcmToken: { $in: invalid } }, { $unset: { fcmToken: 1 } }).catch(() => {});
+    }
+    logger.info(`sendToMany "${title}" -> sent ${sent}, failed ${failed} (${invalid.length} pruned)`);
+  } catch (err) {
+    logger.error(`sendToMany failed: ${err.message}`);
+  }
+
+  return { count: createdDocs.length };
+};
+
+module.exports = { sendToUser, broadcast, sendToMany };

@@ -11,7 +11,7 @@ import { Avatar, Badge, Card } from '../../components/ui';
 import { COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../../constants/theme';
 import { useFocusEffect } from '@react-navigation/native';
 
-const BASE_SERVER = 'http://192.168.1.21:4000';
+const BASE_SERVER = 'http://192.168.1.18:4000';
 
 export default function ProfileScreen({ navigation }) {
   const logout = useAuthStore((s) => s.logout);

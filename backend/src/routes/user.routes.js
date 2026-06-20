@@ -7,6 +7,9 @@ const { ADMIN_ROLES } = require('../config/constants');
 
 // self
 router.get('/me/profile', authenticate, userController.getProfile);
+router.get('/profile/:id', userController.getUniversalProfile);
+
+
 router.put('/me/profile', authenticate, upload.single('avtar'), processUpload('profile_images'), userController.updateProfile);
 router.put('/me/location', authenticate, userController.updateLocation);
 router.put('/me/push-token', authenticate, userController.updatePushToken);

@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants/theme';
+import { COLORS, SPACING, FONTS, RADIUS } from '../../constants/theme';
 import { jobsApi } from '../../api/jobs.api';
 import { jobseekerApi } from '../../api/jobseeker.api';
 import { useFetch } from '../../hooks/useFetch';
@@ -15,33 +16,34 @@ import { Header } from '../../components/ui/Header';
 import { Loader, Screen } from '../../components/ui/Screen';
 import { Avatar, Badge } from '../../components/ui';
 import { Button } from '../../components/ui/Button';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 
 export default function JobDetailScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
-  const user = useAuthStore((s) => s.user);
+  const authUser = useAuthStore((s) => s.user);
   const { jobId } = route.params;
 
   const { data: job, loading } = useFetch(() => jobsApi.get(jobId), [jobId]);
+  const { data: profile } = useFetch(() => jobseekerApi.me(), []);
 
+  // `profile` is the jobseeker doc itself (completeness, resume, etc live here).
+  // `account` is the embedded auth user (role, name, isProfileComplete live here).
+  const account = profile?.userId ?? authUser ?? null;
 
   const [applying, setApplying] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
   const [applied, setApplied] = useState(false);
 
   useEffect(() => {
-    if (job?.applied) {
-      setApplied(true)
-    }
-  }, [job])
+    if (job?.applied) setApplied(true);
+  }, [job]);
 
   if (loading || !job) {
     return (
-      <View style={{ flex: 1, backgroundColor: COLORS.background }}>
+      <Screen>
         <Header title="Job Details" onBack={() => navigation.goBack()} />
         <Loader text="Loading..." />
-      </View>
+      </Screen>
     );
   }
 
@@ -89,8 +91,7 @@ export default function JobDetailScreen({ route, navigation }) {
   // Resume check happens regardless of profile completeness — this is the
   // shared "final step" before actually applying.
   const checkResumeThenApply = () => {
-    const hasResume = !!user.resume?.uploadedAt;
-
+    const hasResume = !!profile?.resume?.uploadedAt;
 
     if (!hasResume) {
       Alert.show({
@@ -110,10 +111,10 @@ export default function JobDetailScreen({ route, navigation }) {
   };
 
   const handleApplyPress = () => {
-    if (!user) return; // wait for the profile check
+    if (!profile) return; // wait for the profile fetch to resolve
 
-    const isProfileComplete = user.userId?.isProfileComplete;
-    const completeness = user.profileCompleteness ?? 0;
+    const isProfileComplete = account?.isProfileComplete;
+    const completeness = profile.profileCompleteness ?? 0;
 
     // Under 70% (or flagged incomplete) -> nudge them to finish the profile,
     // but "Later" still lets them go straight to the resume check + apply.
@@ -135,88 +136,84 @@ export default function JobDetailScreen({ route, navigation }) {
   };
 
   const typeLabel = JOB_TYPES.find((t) => t.value === job.jobType)?.label || job.jobType;
-  const showCompletenessBanner = user && !user.userId?.isProfileComplete;
+  const isEmployer = account?.role === 'employer';
+  const showCompletenessBanner = !!profile && !account?.isProfileComplete;
   const applyBusy = applying || uploadingResume;
 
   return (
-    <Screen>
-      <View style={{ flex: 1, backgroundColor: COLORS.background }}>
-        <Header title="Job Details" onBack={() => navigation.goBack()} />
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {showCompletenessBanner && (
-            <Pressable
-              onPress={() => navigation.navigate('EditProfile')}
-              style={({ pressed }) => [styles.completeBanner, pressed && { opacity: 0.9 }]}
-            >
-              <Ionicons name="alert-circle" size={18} color={COLORS.accent} />
-              <Text style={styles.completeBannerText}>
-                Your profile is {user.profileCompleteness ?? 0}% complete — finish it to apply faster
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={COLORS.accent} />
-            </Pressable>
-          )}
+    <Screen edges={['top']} noPadding>
+      <Header title="Job Details" onBack={() => navigation.goBack()} />
 
-          <View style={styles.card}>
-            <View style={styles.top}>
-              <Avatar uri={job.companyLogo} name={job.companyName || job.title} size={52} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.title}>{job.title}</Text>
-                <Text style={styles.company}>{job.companyName || 'Company'}</Text>
-              </View>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {showCompletenessBanner && (
+          <Pressable
+            onPress={() => navigation.navigate('EditProfile')}
+            style={({ pressed }) => [styles.completeBanner, pressed && { opacity: 0.9 }]}
+          >
+            <Ionicons name="alert-circle" size={18} color={COLORS.accent} />
+            <Text style={styles.completeBannerText}>
+              Your profile is {profile?.profileCompleteness ?? 0}% complete — finish it to apply faster
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.accent} />
+          </Pressable>
+        )}
+
+        <View style={styles.card}>
+          <View style={styles.top}>
+            <Avatar uri={job.companyLogo} name={job.companyName || job.title} size={52} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>{job.title}</Text>
+              <Text style={styles.company}>{job.companyName || 'Company'}</Text>
             </View>
+          </View>
+          <View style={styles.tags}>
+            <Badge label={typeLabel} color={COLORS.secondary} />
+            {job.category ? <Badge label={job.category} color={COLORS.primary} /> : null}
+            {job.location?.isRemote ? <Badge label="Remote" color={COLORS.accent} /> : null}
+          </View>
+        </View>
+
+        <View style={styles.statRow}>
+          <Stat icon="cash-outline" label="Salary" value={formatSalary(job.salary)} />
+          <Stat icon="location-outline" label="Location" value={jobLocation(job.location) || '—'} />
+          <Stat icon="people-outline" label="Openings" value={String(job.vacancies || 1)} />
+        </View>
+
+        <Section title="Job Description">
+          <Text style={styles.body}>{job.description}</Text>
+        </Section>
+
+        {job.requirements?.skills?.length ? (
+          <Section title="Skills Required">
             <View style={styles.tags}>
-              <Badge label={typeLabel} color={COLORS.secondary} />
-              {job.category ? <Badge label={job.category} color={COLORS.primary} /> : null}
-              {job.location?.isRemote ? <Badge label="Remote" color={COLORS.accent} /> : null}
+              {job.requirements.skills.map((s) => <Badge key={s} label={s} color={COLORS.primary} />)}
             </View>
-          </View>
-
-          <View style={styles.statRow}>
-            <Stat icon="cash-outline" label="Salary" value={formatSalary(job.salary)} />
-            <Stat icon="location-outline" label="Location" value={jobLocation(job.location) || '—'} />
-            <Stat icon="people-outline" label="Openings" value={String(job.vacancies || 1)} />
-          </View>
-
-          <Section title="Job Description">
-            <Text style={styles.body}>{job.description}</Text>
           </Section>
+        ) : null}
 
-          {job.requirements?.skills?.length ? (
-            <Section title="Skills Required">
-              <View style={styles.tags}>
-                {job.requirements.skills.map((s) => <Badge key={s} label={s} color={COLORS.primary} />)}
+        {job.benefits?.length ? (
+          <Section title="Benefits">
+            {job.benefits.map((b) => (
+              <View key={b} style={styles.bullet}>
+                <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+                <Text style={styles.body}>{b}</Text>
               </View>
-            </Section>
-          ) : null}
+            ))}
+          </Section>
+        ) : null}
+      </ScrollView>
 
-          {job.benefits?.length ? (
-            <Section title="Benefits">
-              {job.benefits.map((b) => (
-                <View key={b} style={styles.bullet}>
-                  <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
-                  <Text style={styles.body}>{b}</Text>
-                </View>
-              ))}
-            </Section>
-          ) : null}
-        </ScrollView>
-
-
-      </View>
-      <View style={[styles.footer,
-      {
-        height: insets.bottom + 70,
-
-      }
-      ]}>
-        <Button
-          title={applied ? 'Applied ✓' : uploadingResume ? 'Uploading resume...' : 'Apply Now'}
-          onPress={handleApplyPress}
-          loading={applyBusy}
-          disabled={applied || !user}
-          size="md"
-        />
-      </View>
+      {!isEmployer && (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + SPACING.md }]}>
+          <Button
+            title={applied ? 'Applied ✓' : uploadingResume ? 'Uploading resume...' : 'Apply Now'}
+            onPress={handleApplyPress}
+            loading={applyBusy}
+            disabled={applied || !profile}
+            size="md"
+          />
+        </View>
+      )}
     </Screen>
   );
 }
@@ -255,7 +252,6 @@ const styles = StyleSheet.create({
   },
   completeBannerText: { flex: 1, fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.text },
 
-  // Flatter, border-based cards — no heavy shadow, more professional/restrained.
   card: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
@@ -295,5 +291,10 @@ const styles = StyleSheet.create({
   body: { fontSize: FONTS.sizes.md, color: COLORS.gray600, lineHeight: 22, flex: 1 },
   bullet: { flexDirection: 'row', gap: SPACING.sm, alignItems: 'flex-start' },
 
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: SPACING.lg, backgroundColor: COLORS.surface, borderTopWidth: 1, borderTopColor: COLORS.border },
+  footer: {
+    position: 'absolute', left: 0, right: 0, bottom: 0,
+    paddingTop: SPACING.md, paddingHorizontal: SPACING.lg,
+    backgroundColor: COLORS.surface,
+    borderTopWidth: 1, borderTopColor: COLORS.border,
+  },
 });

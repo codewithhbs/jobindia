@@ -49,7 +49,6 @@ const employerProfileSchema = new mongoose.Schema(
 
     gstNumber: String,
     panNumber: String,
-    cinNumber: String,
 
     address: {
       street: String,

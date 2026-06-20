@@ -15,14 +15,16 @@ import SettingsScreen from '../screens/common/SettingsScreen';
 import SupportScreen from '../screens/common/SupportScreen';
 import CmsScreen from '../screens/common/CmsScreen';
 import EmployerDashboardScreen from '../screens/employer/EmployerDashboardScreen';
+import JobDetailScreen from '../screens/jobseeker/JobDetailScreen';
+import ViewJobSeeker from '../screens/employer/ViewJobSeeker';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 const ICONS = { Home: 'grid', Jobs: 'briefcase', Post: 'add-circle', Company: 'business' };
 
 function Tabs() {
-    const insets = useSafeAreaInsets();
-  
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -31,8 +33,8 @@ function Tabs() {
         tabBarInactiveTintColor: COLORS.gray400,
         tabBarStyle: {
           backgroundColor: COLORS.surface, borderTopColor: COLORS.border,
-           height: 60 + insets.bottom,
-          paddingBottom: insets.bottom, 
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 6
         },
         tabBarLabelStyle: { fontSize: FONTS.sizes.xs, fontWeight: '600' },
@@ -56,6 +58,9 @@ export function EmployerNavigator() {
       <Stack.Screen name="PostJob" component={PostJobScreen} />
       <Stack.Screen name="MyJobs" component={MyJobsScreen} />
       <Stack.Screen name="JobApplicants" component={JobApplicantsScreen} />
+      <Stack.Screen name="JobDetail" component={JobDetailScreen} />
+      <Stack.Screen name="ApplicantProfile" component={ViewJobSeeker} />
+
       <Stack.Screen name="EmployerProfile" component={EmployerProfileScreen} />
       <Stack.Screen name="Plans" component={PlansScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />

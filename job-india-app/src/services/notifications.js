@@ -1,7 +1,7 @@
+// services/notifications.js
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import Constants from 'expo-constants';
 import { userApi } from '../api/user.api';
 
 // Foreground display behaviour.
@@ -25,9 +25,10 @@ const buildDeviceInfo = () => ({
 });
 
 /**
- * Asks permission, gets the Expo push token, and syncs it (+ device info)
- * to the backend so the notification service can target this device.
- * Safe to call after login; no-ops gracefully on simulators / web.
+ * Asks permission, gets the raw FCM device token (since the backend sends
+ * via Firebase Admin SDK directly — NOT the Expo push service), and syncs
+ * it + device info to the backend. Safe to call after login; no-ops on
+ * simulators / web.
  */
 export async function registerForPushNotifications() {
   try {
@@ -50,20 +51,23 @@ export async function registerForPushNotifications() {
     }
     if (status !== 'granted') return null;
 
-    const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId || Constants.easConfig?.projectId;
-    const tokenData = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined
-    );
-    const expoPushToken = tokenData.data;
+    // Backend sends via Firebase Admin SDK → we need the raw device FCM
+    // token, NOT the Expo push token. getExpoPushTokenAsync() is not used
+    // anywhere in this flow.
+    const nativeToken = await Notifications.getDevicePushTokenAsync();
+    const fcmToken = nativeToken?.data;
+    if (!fcmToken) return null;
 
-    // Sync token + device info to backend (best-effort).
-    await userApi
-      .updateProfile(asForm({ expoPushToken, deviceInfo: JSON.stringify(buildDeviceInfo()) }))
-      .catch(() => userApi.updatePushToken({ expoPushToken }).catch(() => {}));
+    console.log('FCM Device Token:', fcmToken);
 
-    return expoPushToken;
-  } catch (_e) {
+    await userApi.updatePushToken({
+      fcmToken,
+      deviceInfo: buildDeviceInfo(),
+    });
+
+    return fcmToken;
+  } catch (e) {
+    console.error('Push registration failed:', e);
     return null;
   }
 }
@@ -76,11 +80,4 @@ export function attachNotificationListeners({ onReceive, onResponse } = {}) {
     recSub.remove();
     resSub.remove();
   };
-}
-
-// multipart helper (updateProfile expects form-data)
-function asForm(obj) {
-  const fd = new FormData();
-  Object.entries(obj).forEach(([k, v]) => v != null && fd.append(k, v));
-  return fd;
 }

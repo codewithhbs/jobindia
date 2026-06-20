@@ -1,7 +1,8 @@
-const { JobSeekerProfile } = require('../models');
+const { JobSeekerProfile, EmployerProfile } = require('../models');
 const { Job, Application, SavedJob } = require('../models/job.model');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { enqueueSingle, enqueueRecommendJob } = require('../queue');
 
 function calculateSkillMatch(userSkills = [], jobSkills = []) {
   if (!jobSkills.length) return 0;
@@ -57,31 +58,186 @@ function rankJob(job, profile) {
   return { ...job.toObject(), score };
 }
 // POST /api/v1/jobs
+// POST /api/v1/jobs
 exports.createJob = async (req, res, next) => {
   try {
+    const {
+      title,
+      description,
+      category,
+      salary,
+      location,
+      requirements,
+      vacancies,
+      jobType,
+      dynamicFields,
+      applicationDeadline,
+      benefits,
+      tags,
+      status,
+      isFeatured
+    } = req.body;
 
-    const { title, description, category, salary, location, requirements, vacancies, jobType, dynamicFields, applicationDeadline, benefits, tags } = req.body;
     const { userId, role } = req.user;
 
-    if (!['employer', 'admin', 'superadmin'].includes(role)) {
-      throw new AppError('Only employers can post jobs', 403);
+    if (!["employer", "admin", "superadmin"].includes(role)) {
+      return next(new AppError("Only employers can post jobs", 403));
+    }
+
+    if (!title?.trim()) {
+      return next(new AppError("Job title is required", 400));
+    }
+
+    if (!description?.trim()) {
+      return next(new AppError("Job description is required", 400));
+    }
+
+    if (!location) {
+      return next(new AppError("Location is required", 400));
+    }
+
+    // ── Subscription / job-post-limit check (only for employer role) ───────
+    let employerProfile = null;
+    if (role === "employer") {
+      employerProfile = await EmployerProfile.findOne({ userId });
+
+      if (!employerProfile) {
+        return next(new AppError("Employer profile not found. Please complete your company profile first.", 404));
+      }
+
+      // Downgrade to free if subscription has expired
+      const isExpired =
+        employerProfile.subscriptionExpiry &&
+        employerProfile.subscriptionExpiry.getTime() < Date.now();
+
+      if (isExpired && employerProfile.subscriptionPlan !== "free") {
+        employerProfile.subscriptionPlan = "free";
+        employerProfile.subscriptionExpiry = null;
+
+        const freePlan = await SubscriptionPlan.findOne({ slug: "free", isActive: true });
+        employerProfile.jobPostLimit = freePlan?.jobPostLimit ?? 3;
+
+        await employerProfile.save();
+      }
+
+      const limit = employerProfile.jobPostLimit ?? 3;
+      const activeCount = employerProfile.activeJobs ?? 0;
+
+      if (activeCount >= limit) {
+        return next(
+          new AppError(
+            `You've reached your active job posting limit (${activeCount}/${limit}) for the ${employerProfile.subscriptionPlan} plan. Upgrade your plan or close an existing job to post a new one.`,
+            403
+          )
+        );
+      }
+    }
+
+    let longitude = null;
+    let latitude = null;
+
+    // Case 1: coordinates array
+    if (
+      Array.isArray(location.coordinates) &&
+      location.coordinates.length >= 2
+    ) {
+      longitude = Number(location.coordinates[0]);
+      latitude = Number(location.coordinates[1]);
+    }
+
+    // Case 2: latitude/longitude fields
+    else if (
+      location.latitude !== undefined &&
+      location.longitude !== undefined
+    ) {
+      latitude = Number(location.latitude);
+      longitude = Number(location.longitude);
+    }
+
+    const isRemote = Boolean(location.isRemote);
+
+    const locationData = {
+      address: location.address || "",
+      city: location.city || "",
+      state: location.state || "",
+      country: location.country || "",
+      pincode: location.pincode || "",
+      isRemote
+    };
+
+    // Only add GeoJSON for non-remote jobs
+    if (!isRemote) {
+      if (
+        Number.isNaN(latitude) ||
+        Number.isNaN(longitude) ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180
+      ) {
+        return next(
+          new AppError(
+            "Valid latitude and longitude are required",
+            400
+          )
+        );
+      }
+
+      locationData.type = "Point";
+      locationData.coordinates = [longitude, latitude];
     }
 
     const job = await Job.create({
-      title, description, category, salary, jobType,
-      location: {
-        ...location,
-        type: 'Point',
-        coordinates: [parseFloat(location.longitude), parseFloat(location.latitude)]
-      },
-      requirements, vacancies, dynamicFields, applicationDeadline, benefits, tags,
+      title: title.trim(),
+      description: description.trim(),
+      category,
+      salary,
+      jobType,
+      vacancies,
+      requirements,
+      dynamicFields,
+      applicationDeadline,
+      benefits,
+      tags,
+      location: locationData,
       employerId: userId,
-      status: 'paused',
+      status: status || "paused",
+      isFeatured: Boolean(isFeatured),
       publishedAt: new Date()
     });
 
-    res.status(201).json({ success: true, data: job, message: 'Job posted successfully' });
+    // ── Bump employer counters now that the job exists ──────────────────────
+    if (employerProfile) {
+      const increments = { totalJobsPosted: 1 };
+      // Only count toward the active-jobs limit if the job is actually live.
+      if (job.status === "active") {
+        increments.activeJobs = 1;
+      }
+      await EmployerProfile.updateOne(
+        { _id: employerProfile._id },
+        { $inc: increments }
+      );
+    }
+
+    // ── Notify recommended jobseekers about the new job (only when live) ────
+    // Heavy matching + fan-out runs in the worker, so this returns instantly.
+    if (job.status === 'active') {
+      enqueueRecommendJob(job._id);
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Job posted successfully",
+      data: job
+    });
+
   } catch (error) {
+    console.error("Create Job Error:", {
+      message: error.message,
+      body: req.body,
+      user: req.user
+    });
+
     next(error);
   }
 };
@@ -179,7 +335,7 @@ exports.getJobs = async (req, res, next) => {
           $maxDistance: parseInt(radius || 25000)
         }
       };
-      query = Job.find(filter);
+      query = Job.find(filter).populate('employerId');
     } else {
       // Sort options
       const sortOptions = {
@@ -189,7 +345,7 @@ exports.getJobs = async (req, res, next) => {
       };
 
       query = Job.find(filter, search ? { score: { $meta: 'textScore' } } : {})
-        .sort(sortOptions[sortBy] || { isFeatured: -1, createdAt: -1 });
+        .sort(sortOptions[sortBy] || { isFeatured: -1, createdAt: -1 }).populate('employerId');
     }
 
     const [jobs, total] = await Promise.all([
@@ -318,6 +474,36 @@ exports.updateJob = async (req, res, next) => {
       }
     );
 
+    // ── Notify the employer who posted when the job's status changes ─────────
+    // (e.g. admin verifies / rejects / closes / re-activates the job).
+    const prevStatus = job.status;
+    const newStatus = updatedJob.status;
+    if (newStatus && newStatus !== prevStatus) {
+      const STATUS_MSG = {
+        verified: 'has been verified and is now live 🎉',
+        active: 'is now live and visible to candidates ✅',
+        rejected: 'was rejected by the admin. Please review and edit it.',
+        closed: 'has been closed.',
+        paused: 'has been paused.',
+        expired: 'has expired.',
+      };
+      const tail = STATUS_MSG[newStatus] || `status changed to "${newStatus}".`;
+      enqueueSingle({
+        userId: updatedJob.employerId,
+        title: 'Job status updated',
+        body: `Your job "${updatedJob.title}" ${tail}`,
+        category: 'job',
+        data: { type: 'job_status', jobId: String(updatedJob._id), status: newStatus },
+      });
+
+      // If it just went live, surface it to recommended jobseekers too.
+      const wasLive = ['active', 'verified'].includes(prevStatus);
+      const isLive = ['active', 'verified'].includes(newStatus);
+      if (isLive && !wasLive) {
+        enqueueRecommendJob(updatedJob._id);
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: updatedJob,
@@ -337,6 +523,15 @@ exports.deleteJob = async (req, res, next) => {
     }
 
     await Job.findByIdAndUpdate(req.params.id, { status: 'closed' });
+
+    enqueueSingle({
+      userId: job.employerId,
+      title: 'Job closed',
+      body: `Your job "${job.title}" has been closed.`,
+      category: 'job',
+      data: { type: 'job_status', jobId: String(job._id), status: 'closed' },
+    });
+
     res.json({ success: true, message: 'Job closed' });
   } catch (error) {
     next(error);
@@ -367,7 +562,27 @@ exports.applyJob = async (req, res, next) => {
       jobTitle: job.title, coverLetter, resumeUrl, status: 'applied'
     });
 
-    await Job.findByIdAndUpdate(jobId, { $inc: { applications: 1 } });
+    const updatedJob = await Job.findByIdAndUpdate(
+      jobId,
+      { $inc: { applications: 1 } },
+      { new: true }
+    );
+
+    // ── Milestone: ping the employer after every 5th application ────────────
+    const totalApplications = updatedJob?.applications || 0;
+    if (totalApplications > 0 && totalApplications % 5 === 0) {
+      enqueueSingle({
+        userId: job.employerId,
+        title: 'New applications 📨',
+        body: `Your job "${job.title}" has received ${totalApplications} applications so far.`,
+        category: 'application',
+        data: {
+          type: 'application_milestone',
+          jobId: String(jobId),
+          count: String(totalApplications),
+        },
+      });
+    }
 
     res.status(201).json({ success: true, data: application, message: 'Application submitted' });
   } catch (error) {
@@ -412,11 +627,27 @@ exports.getJobApplications = async (req, res, next) => {
     if (status) filter.status = status;
 
     const apps = await Application.find(filter)
+      .populate('applicantId')
       .sort({ appliedAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
+    const applicantIds = apps.map(a => a.applicantId?._id || a.applicantId);
 
-    res.json({ success: true, data: apps, count: apps.length });
+    const profiles = await JobSeekerProfile.find({
+      userId: { $in: applicantIds }
+    });
+
+    const profileMap = profiles.reduce((acc, profile) => {
+      acc[profile.userId.toString()] = profile;
+      return acc;
+    }, {});
+
+    const enrichedApps = apps.map(app => ({
+      ...app.toObject(),
+      profile: profileMap[(app.applicantId?._id || app.applicantId).toString()] || null,
+    }));
+
+    res.json({ success: true, data: enrichedApps, count: enrichedApps.length });
   } catch (error) {
     next(error);
   }

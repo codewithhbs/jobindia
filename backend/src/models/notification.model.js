@@ -6,7 +6,7 @@ const notificationSchema = new mongoose.Schema({
   title: { type: String, required: true },
   body: { type: String, required: true },
   type: { type: String, enum: ['push', 'sms', 'email', 'in_app'], default: 'push' },
-  category: { type: String, enum: ['system', 'job', 'application', 'kyc', 'promotion', 'general'], default: 'general' },
+  category: { type: String, enum: ['system', 'job', 'application', 'kyc', 'promotion', 'payment', 'general'], default: 'general' },
   data: mongoose.Schema.Types.Mixed,
   isRead: { type: Boolean, default: false },
   isSent: { type: Boolean, default: false },

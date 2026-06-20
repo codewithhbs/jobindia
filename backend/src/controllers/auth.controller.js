@@ -6,6 +6,7 @@ const { ROLES, ADMIN_ROLES } = require('../config/constants');
 const { User, JobSeekerProfile, EmployerProfile, DriverProfile, RefreshToken } = require('../models');
 const otpService = require('../services/otp.service');
 const tokenService = require('../services/token.service');
+const { enqueueSingle } = require('../queue');
 
 // Creates the user + the matching role profile if it does not exist yet.
 const findOrCreateUser = async (phone, role = ROLES.JOBSEEKER) => {
@@ -16,6 +17,16 @@ const findOrCreateUser = async (phone, role = ROLES.JOBSEEKER) => {
   if (role === ROLES.DRIVER) await DriverProfile.create({ userId: user._id });
   else if (role === ROLES.JOBSEEKER) await JobSeekerProfile.create({ userId: user._id });
   else if (role === ROLES.EMPLOYER) await EmployerProfile.create({ userId: user._id });
+
+  // Welcome notification for brand-new registrations (queued — non-blocking).
+  enqueueSingle({
+    userId: user._id,
+    title: 'Welcome to Job India 👋',
+    body: 'Your account is ready. Complete your profile to get started.',
+    category: 'system',
+    data: { type: 'welcome', role },
+  });
+
   return user;
 };
 

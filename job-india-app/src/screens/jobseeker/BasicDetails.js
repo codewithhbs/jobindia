@@ -18,7 +18,7 @@ import { useAuthStore } from '../../store/authStore';
 import { userApi } from '../../api/user.api';
 import { useFetch } from '../../hooks/useFetch';
 
-const BASE_SERVER = 'http://192.168.1.21:4000';
+const BASE_SERVER = 'http://192.168.1.18:4000';
 
 const FIELDS = [
   { key: 'name', label: 'Full Name', icon: 'person-outline', placeholder: 'Enter your name', keyboard: 'default', caps: 'words' },

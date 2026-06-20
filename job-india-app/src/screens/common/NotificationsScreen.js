@@ -14,7 +14,7 @@ export default function NotificationsScreen({ navigation }) {
   const { data, loading, refetch } = useFetch(() => notificationsApi.list({ limit: 50 }), []);
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => { setRefreshing(true); await refetch().catch(() => {}); setRefreshing(false); }, [refetch]);
-
+  console.log(data)
   const markAll = async () => { await notificationsApi.markAllRead().catch(() => {}); refetch(); };
   const open = async (n) => { if (!n.isRead) await notificationsApi.markRead(n._id).catch(() => {}); refetch(); };
 
