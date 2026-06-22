@@ -65,7 +65,7 @@ export default function Login() {
         ) : (
           <div className="space-y-4">
             <div>
-              <label className="label">Enter 6-digit OTP sent to {e164(phone)}</label>
+              <label className="label">Enter 6-digit OTP sent to {e164(phone)} [Demo Otp - 123456]</label>
               <input
                 className="input tracking-[0.5em] text-center text-lg font-bold" placeholder="------"
                 maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/[^\d]/g, ''))}
