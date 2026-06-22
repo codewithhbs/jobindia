@@ -691,7 +691,9 @@ exports.getJob = async (req, res, next) => {
       { new: true }
     );
 
-    if (!job) throw new AppError('Job not found', 404);
+    if (!job) {
+      throw new AppError('Job not found', 404);
+    }
 
     let applied = false;
 
@@ -699,18 +701,26 @@ exports.getJob = async (req, res, next) => {
       const application = await Application.findOne({
         jobId: req.params.id,
         applicantId: req.user.userId,
-        status: 'applied',
       });
 
       applied = !!application;
     }
 
+    // Fetch employer profile using employerId (User._id)
+    const employerProfile = await EmployerProfile.findOne({
+      userId: job.employerId,
+    }).lean();
+
     const jobData = {
       ...job.toObject(),
       applied,
+      employerProfile: employerProfile || null,
     };
 
-    res.json({ success: true, data: jobData });
+    res.json({
+      success: true,
+      data: jobData,
+    });
   } catch (error) {
     next(error);
   }

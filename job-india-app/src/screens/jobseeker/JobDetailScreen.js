@@ -17,7 +17,8 @@ import { Loader, Screen } from '../../components/ui/Screen';
 import { Avatar, Badge } from '../../components/ui';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/authStore';
-
+import { useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 const DEFAULT_SUPPORT_NUMBER = '+911234567890'; // ✅ apna default support number daal de
 
 
@@ -42,7 +43,7 @@ export default function JobDetailScreen({ route, navigation }) {
   const { jobId } = route.params;
 
   const { data: job, loading } = useFetch(() => jobsApi.get(jobId), [jobId]);
-  const { data: profile } = useFetch(() => jobseekerApi.me(), []);
+  const { data: profile, refetch } = useFetch(() => jobseekerApi.me(), [navigation]);
 
   // `profile` is the jobseeker doc itself (completeness, resume, etc live here).
   // `account` is the embedded auth user (role, name, isProfileComplete, kyc fields live here).
@@ -62,6 +63,12 @@ export default function JobDetailScreen({ route, navigation }) {
   // ✅ driver gate: KYC status based
   const isKYCVerified = !!account?.isKYCVerified;
   const kycStatus = account?.kycStatus; // 'pending' | 'rejected' | 'approved'
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [])
+  );
 
   if (loading || !job) {
     return (
