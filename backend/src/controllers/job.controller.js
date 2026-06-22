@@ -244,7 +244,6 @@ exports.getRecommendedJobs = async (req, res, next) => {
 
     let jobsQuery = { status: 'active' };
 
-    // Driver category restriction
     if (req.user?.role === 'driver') {
       const driverCategories = await Category.find(
         { is_Drivercat: true },
@@ -254,10 +253,7 @@ exports.getRecommendedJobs = async (req, res, next) => {
       const driverCatNames = driverCategories.map(c => c.name);
 
       if (!driverCatNames.length) {
-        return res.json({
-          success: true,
-          data: []
-        });
+        return res.json({ success: true, data: [] });
       }
 
       jobsQuery.category = { $in: driverCatNames };
@@ -273,37 +269,22 @@ exports.getRecommendedJobs = async (req, res, next) => {
       jobsQuery.$text = { $search: search };
     }
 
-    const jobs = await Job.find(jobsQuery)
-      .limit(200)
-      .lean();
+    const jobs = await Job.find(jobsQuery).limit(200);
 
-    // Get all employer ids
-    const employerIds = [
-      ...new Set(
-        jobs
-          .map(job => job.employerId?.toString())
-          .filter(Boolean)
-      )
-    ];
+    let ranked = await Promise.all(
+      jobs.map(async (job) => {
+        const employerProfile = await EmployerProfile.findOne({
+          userId: job.employerId,
+        }).lean();
 
-    // Fetch all employer profiles in one query
-    const employerProfiles = await EmployerProfile.find({
-      userId: { $in: employerIds }
-    }).lean();
+        return {
+          ...rankJob(job, profile),
+          employerProfile,
+        };
+      })
+    );
 
-    const employerMap = {};
-
-    employerProfiles.forEach(profile => {
-      employerMap[profile.userId.toString()] = profile;
-    });
-
-    const ranked = jobs
-      .map(job => ({
-        ...rankJob(job, profile),
-        employerProfile:
-          employerMap[job.employerId?.toString()] || null
-      }))
-      .sort((a, b) => b.score - a.score);
+    ranked = ranked.sort((a, b) => b.score - a.score);
 
     let finalJobs = ranked;
 
@@ -318,7 +299,7 @@ exports.getRecommendedJobs = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: finalJobs.slice(0, 50)
+      data: finalJobs.slice(0, 50),
     });
 
   } catch (error) {
