@@ -6,6 +6,8 @@ import Constants from 'expo-constants';
 // Override via app.json -> expo.extra.apiUrl, or set EXPO_PUBLIC_API_URL.
 export const API_URL =
   'https://jobapi.adsdigitalmedia.com/api/v1';
+export const BASE_API_URL =
+  'https://jobapi.adsdigitalmedia.com';
 
 export const ROLES = {
   JOBSEEKER: 'jobseeker',

@@ -9,7 +9,7 @@ import { jobsApi } from '../../api/jobs.api';
 import { jobseekerApi } from '../../api/jobseeker.api';
 import { useFetch } from '../../hooks/useFetch';
 import { formatSalary, jobLocation } from '../../utils/format';
-import { JOB_TYPES } from '../../constants/config';
+import { BASE_API_URL, JOB_TYPES } from '../../constants/config';
 import { toast } from '../../utils/toast';
 import { Alert } from '../../components/ui/AppAlert';
 import { Header } from '../../components/ui/Header';
@@ -24,11 +24,13 @@ const DEFAULT_SUPPORT_NUMBER = '+911234567890'; // ✅ apna default support numb
 
 function formatSalaryDisplay(salary) {
   if (!salary) return 'Not disclosed';
-  const { min, max, currency = '₹', period = 'month' } = salary;
+  if (salary.isHidden) return 'Not disclosed';
+  const { min, max, currency = 'INR', period = 'monthly' } = salary;
   if (!min && !max) return 'Not disclosed';
-  if (min && max) return `${currency}${min.toLocaleString()} - ${currency}${max.toLocaleString()} / ${period}`;
-  if (min) return `${currency}${min.toLocaleString()}+ / ${period}`;
-  return `Up to ${currency}${max.toLocaleString()} / ${period}`;
+  const symbol = currency === 'INR' ? '₹' : `${currency} `;
+  if (min && max) return `${symbol}${min.toLocaleString()} - ${symbol}${max.toLocaleString()} / ${period}`;
+  if (min) return `${symbol}${min.toLocaleString()}+ / ${period}`;
+  return `Up to ${symbol}${max.toLocaleString()} / ${period}`;
 }
 
 function formatLocationDisplay(location) {
@@ -37,6 +39,14 @@ function formatLocationDisplay(location) {
   if (location.isRemote) return parts.length ? `Remote • ${parts.join(', ')}` : 'Remote';
   return parts.length ? parts.join(', ') : 'Not specified';
 }
+
+function experienceLabel(exp) {
+  if (!exp) return 'Any experience';
+  const { min, unit = 'years' } = exp;
+  if (!min) return 'Fresher welcome';
+  return `${min}+ ${unit} experience`;
+}
+
 export default function JobDetailScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const authUser = useAuthStore((s) => s.user);
@@ -212,9 +222,15 @@ export default function JobDetailScreen({ route, navigation }) {
     checkResumeThenApply();
   };
 
-  // ✅ company / call card logic
-  const hasCompany = !!(job.companyName || job.companyPhone);
-  const callNumber = job.companyPhone || DEFAULT_SUPPORT_NUMBER;
+  // ✅ company info now lives under employerProfile (real API shape)
+  const ep = job.employerProfile || {};
+  const companyName = ep.companyName || job.companyName;
+  const companyLogo = ep.companyLogo
+    ? (ep.companyLogo.startsWith('http') ? ep.companyLogo : `${BASE_API_URL || ''}${ep.companyLogo}`)
+    : job.companyLogo;
+  const companyPhone = ep.contactPerson?.phone || job.companyPhone;
+  const hasCompany = !!(companyName || companyPhone);
+  const callNumber = companyPhone || DEFAULT_SUPPORT_NUMBER;
 
   const handleCall = () => {
     Linking.openURL(`tel:${callNumber}`).catch(() =>
@@ -223,6 +239,7 @@ export default function JobDetailScreen({ route, navigation }) {
   };
 
   const typeLabel = JOB_TYPES.find((t) => t.value === job.jobType)?.label || job.jobType;
+  const req = job.requirements || {};
 
   // ✅ banner: driver -> KYC based, jobseeker -> % based
   const showCompletenessBanner = isDriver
@@ -255,36 +272,103 @@ export default function JobDetailScreen({ route, navigation }) {
 
         <View style={styles.card}>
           <View style={styles.top}>
-            <Avatar uri={job.companyLogo} name={job.companyName || job.title} size={52} />
+         
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>{job.title}</Text>
-              <Text style={styles.company}>{job.companyName || 'Company'}</Text>
+              <Text style={styles.company}>{companyName || 'Company'}</Text>
             </View>
+            {job.isFeatured ? <Badge label="Featured" color={COLORS.accent} /> : null}
           </View>
           <View style={styles.tags}>
             <Badge label={typeLabel} color={COLORS.secondary} />
             {job.category ? <Badge label={job.category} color={COLORS.primary} /> : null}
             {job.location?.isRemote ? <Badge label="Remote" color={COLORS.accent} /> : null}
+            {ep.verificationStatus === 'approved' ? <Badge label="Verified company" color={COLORS.success} /> : null}
+          </View>
+
+          {/* views / applications mini-row */}
+          <View style={styles.metaRow}>
+            <View style={styles.metaItem}>
+              <Ionicons name="eye-outline" size={14} color={COLORS.textLight} />
+              <Text style={styles.metaText}>{job.views ?? 0} views</Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Ionicons name="people-outline" size={14} color={COLORS.textLight} />
+              <Text style={styles.metaText}>{job.applications ?? 0} applied</Text>
+            </View>
+            {job.vacancies ? (
+              <View style={styles.metaItem}>
+                <Ionicons name="briefcase-outline" size={14} color={COLORS.textLight} />
+                <Text style={styles.metaText}>{job.vacancies} openings</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
-        {/* ✅ Company details + call, ya default support call */}
+        {/* ✅ Company details card — real employerProfile data */}
         <View style={styles.card}>
           {hasCompany ? (
-            <View style={styles.companyRow}>
-              <Avatar uri={job.companyLogo} name={job.companyName || job.title} size={40} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.companyName}>{job.companyName || 'Company'}</Text>
-                {job.companyPhone ? (
-                  <Text style={styles.companyPhone}>{job.companyPhone}</Text>
-                ) : (
-                  <Text style={styles.companyPhone}>Contact via support</Text>
-                )}
+            <>
+              <View style={styles.companyRow}>
+                <Avatar uri={companyLogo} name={companyName || job.title} size={40} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.companyName}>{companyName || 'Company'}</Text>
+                  {companyPhone ? (
+                    <Text style={styles.companyPhone}>{companyPhone}</Text>
+                  ) : (
+                    <Text style={styles.companyPhone}>Contact via support</Text>
+                  )}
+                </View>
+                <Pressable onPress={handleCall} style={styles.callBtn}>
+                  <Ionicons name="call" size={18} color={COLORS.surface} />
+                </Pressable>
               </View>
-              <Pressable onPress={handleCall} style={styles.callBtn}>
-                <Ionicons name="call" size={18} color={COLORS.surface} />
-              </Pressable>
-            </View>
+
+              {(ep.industry || ep.companySize || ep.foundedYear) ? (
+                <View style={styles.companyMetaRow}>
+                  {ep.industry ? (
+                    <View style={styles.companyMetaItem}>
+                      <Ionicons name="layers-outline" size={14} color={COLORS.textLight} />
+                      <Text style={styles.companyMetaText}>{ep.industry}</Text>
+                    </View>
+                  ) : null}
+                  {ep.companySize ? (
+                    <View style={styles.companyMetaItem}>
+                      <Ionicons name="people-outline" size={14} color={COLORS.textLight} />
+                      <Text style={styles.companyMetaText}>{ep.companySize} employees</Text>
+                    </View>
+                  ) : null}
+                  {ep.foundedYear ? (
+                    <View style={styles.companyMetaItem}>
+                      <Ionicons name="calendar-outline" size={14} color={COLORS.textLight} />
+                      <Text style={styles.companyMetaText}>Since {ep.foundedYear}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {ep.description ? (
+                <Text style={styles.companyDesc}>{ep.description}</Text>
+              ) : null}
+
+              {ep.address?.city ? (
+                <View style={styles.companyMetaItem}>
+                  <Ionicons name="location-outline" size={14} color={COLORS.textLight} />
+                  <Text style={styles.companyMetaText}>
+                    {[ep.address.street, ep.address.city, ep.address.pincode].filter(Boolean).join(', ')}
+                  </Text>
+                </View>
+              ) : null}
+
+              {ep.website ? (
+                <Pressable onPress={() => Linking.openURL(ep.website)}>
+                  <View style={styles.companyMetaItem}>
+                    <Ionicons name="globe-outline" size={14} color={COLORS.primary} />
+                    <Text style={[styles.companyMetaText, { color: COLORS.primary }]}>{ep.website}</Text>
+                  </View>
+                </Pressable>
+              ) : null}
+            </>
           ) : (
             <View style={styles.companyRow}>
               <View style={{ flex: 1 }}>
@@ -301,18 +385,57 @@ export default function JobDetailScreen({ route, navigation }) {
         <View style={styles.statRow}>
           <Stat icon="cash-outline" label="Salary" value={formatSalaryDisplay(job.salary)} />
           <Stat icon="location-outline" label="Location" value={formatLocationDisplay(job.location)} />
-          <Stat icon="people-outline" label="Openings" value={String(job.vacancies || 1)} />
+          <Stat icon="briefcase-outline" label="Experience" value={experienceLabel(req.experience)} />
         </View>
 
         <Section title="Job Description">
           <Text style={styles.body}>{job.description}</Text>
         </Section>
 
-        {job.requirements?.skills?.length ? (
-          <Section title="Skills Required">
-            <View style={styles.tags}>
-              {job.requirements.skills.map((s) => <Badge key={s} label={s} color={COLORS.primary} />)}
-            </View>
+        {(req.skills?.length || req.languages?.length || req.licenseRequired || req.vehicleRequired || req.gender) ? (
+          <Section title="Requirements">
+            {req.skills?.length ? (
+              <View style={{ gap: SPACING.xs }}>
+                <Text style={styles.subLabel}>Skills</Text>
+                <View style={styles.tags}>
+                  {req.skills.map((s) => <Badge key={s} label={s} color={COLORS.primary} />)}
+                </View>
+              </View>
+            ) : null}
+
+            {req.languages?.length ? (
+              <View style={{ gap: SPACING.xs }}>
+                <Text style={styles.subLabel}>Languages</Text>
+                <View style={styles.tags}>
+                  {req.languages.map((l) => <Badge key={l} label={l} color={COLORS.secondary} />)}
+                </View>
+              </View>
+            ) : null}
+
+            {req.licenseRequired ? (
+              <View style={styles.bullet}>
+                <Ionicons name="card-outline" size={16} color={COLORS.text} />
+                <Text style={styles.body}>
+                  License required{req.licenseType?.length ? `: ${req.licenseType.join(', ')}` : ''}
+                </Text>
+              </View>
+            ) : null}
+
+            {req.vehicleRequired ? (
+              <View style={styles.bullet}>
+                <Ionicons name="car-outline" size={16} color={COLORS.text} />
+                <Text style={styles.body}>
+                  Own vehicle required{req.vehicleType?.length ? `: ${req.vehicleType.join(', ')}` : ''}
+                </Text>
+              </View>
+            ) : null}
+
+            {req.gender && req.gender !== 'any' ? (
+              <View style={styles.bullet}>
+                <Ionicons name="person-outline" size={16} color={COLORS.text} />
+                <Text style={styles.body}>Preferred: {req.gender}</Text>
+              </View>
+            ) : null}
           </Section>
         ) : null}
 
@@ -324,6 +447,15 @@ export default function JobDetailScreen({ route, navigation }) {
                 <Text style={styles.body}>{b}</Text>
               </View>
             ))}
+          </Section>
+        ) : null}
+
+        {job.location?.address ? (
+          <Section title="Job Location">
+            <View style={styles.bullet}>
+              <Ionicons name="location-outline" size={16} color={COLORS.text} />
+              <Text style={styles.body}>{job.location.address}</Text>
+            </View>
           </Section>
         ) : null}
       </ScrollView>
@@ -390,6 +522,10 @@ const styles = StyleSheet.create({
   company: { fontSize: FONTS.sizes.md, color: COLORS.textSecondary, marginTop: 2 },
   tags: { flexDirection: 'row', gap: SPACING.sm, flexWrap: 'wrap' },
 
+  metaRow: { flexDirection: 'row', gap: SPACING.lg, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: SPACING.sm },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaText: { fontSize: FONTS.sizes.xs, color: COLORS.textLight },
+
   companyRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   companyName: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.text },
   companyPhone: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 2 },
@@ -398,6 +534,11 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
   },
+
+  companyMetaRow: { flexDirection: 'row', gap: SPACING.md, flexWrap: 'wrap' },
+  companyMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  companyMetaText: { fontSize: FONTS.sizes.xs, color: COLORS.textLight },
+  companyDesc: { fontSize: FONTS.sizes.sm, color: COLORS.gray600, lineHeight: 20 },
 
   statRow: { flexDirection: 'row', gap: SPACING.md },
   stat: {
@@ -422,6 +563,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   sectionTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.text },
+  subLabel: { fontSize: FONTS.sizes.xs, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase' },
   body: { fontSize: FONTS.sizes.md, color: COLORS.gray600, lineHeight: 22, flex: 1 },
   bullet: { flexDirection: 'row', gap: SPACING.sm, alignItems: 'flex-start' },
 

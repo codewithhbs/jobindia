@@ -244,7 +244,7 @@ exports.getRecommendedJobs = async (req, res, next) => {
 
     let jobsQuery = { status: 'active' };
 
-    // ✅ driver role → ONLY driver categories, no other jobs
+    // Driver category restriction
     if (req.user?.role === 'driver') {
       const driverCategories = await Category.find(
         { is_Drivercat: true },
@@ -254,12 +254,14 @@ exports.getRecommendedJobs = async (req, res, next) => {
       const driverCatNames = driverCategories.map(c => c.name);
 
       if (!driverCatNames.length) {
-        return res.json({ success: true, data: [] }); // no driver cats → no jobs
+        return res.json({
+          success: true,
+          data: []
+        });
       }
 
       jobsQuery.category = { $in: driverCatNames };
 
-      // if category query param passed, intersect with driver cats only
       if (category && driverCatNames.includes(category)) {
         jobsQuery.category = category;
       }
@@ -271,16 +273,43 @@ exports.getRecommendedJobs = async (req, res, next) => {
       jobsQuery.$text = { $search: search };
     }
 
-    const jobs = await Job.find(jobsQuery).limit(200);
+    const jobs = await Job.find(jobsQuery)
+      .limit(200)
+      .lean();
+
+    // Get all employer ids
+    const employerIds = [
+      ...new Set(
+        jobs
+          .map(job => job.employerId?.toString())
+          .filter(Boolean)
+      )
+    ];
+
+    // Fetch all employer profiles in one query
+    const employerProfiles = await EmployerProfile.find({
+      userId: { $in: employerIds }
+    }).lean();
+
+    const employerMap = {};
+
+    employerProfiles.forEach(profile => {
+      employerMap[profile.userId.toString()] = profile;
+    });
 
     const ranked = jobs
-      .map(job => rankJob(job, profile))
+      .map(job => ({
+        ...rankJob(job, profile),
+        employerProfile:
+          employerMap[job.employerId?.toString()] || null
+      }))
       .sort((a, b) => b.score - a.score);
 
     let finalJobs = ranked;
 
     if (search) {
       const s = search.toLowerCase();
+
       finalJobs = ranked.filter(job =>
         job.title?.toLowerCase().includes(s) ||
         job.description?.toLowerCase().includes(s)
@@ -289,14 +318,13 @@ exports.getRecommendedJobs = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: finalJobs.slice(0, 50),
+      data: finalJobs.slice(0, 50)
     });
 
   } catch (error) {
     next(error);
   }
 };
-
 // GET /api/v1/jobs (search + filter)
 exports.getJobs = async (req, res, next) => {
   try {

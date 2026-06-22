@@ -17,20 +17,31 @@ function appStageIndex(status) {
 
 
 export function JobCard({ job, onPress, onSave, saved }) {
+  const ep = job.employerProfile || {};
+  console.log(job)
+  const companyName = ep.companyName || job.companyName;
+  const companyLogo = ep.companyLogo
+    ? (ep.companyLogo.startsWith('http') ? ep.companyLogo : `${API_BASE_URL}${ep.companyLogo}`)
+    : job.companyLogo;
+
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
-      {/* {job.isFeatured && (
-        <View style={styles.featuredRibbon}>
-          <Ionicons name="star" size={10} color={COLORS.white} />
-          <Text style={styles.featuredRibbonText}>Featured</Text>
-        </View>
-      )} */}
 
       <View style={styles.top}>
-        <Avatar uri={job.companyLogo} name={job.companyName || job.title} size={44} />
+        <Avatar uri={companyLogo} name={companyName || job.title} size={44} />
         <View style={{ flex: 1 }}>
           <Text style={styles.title} numberOfLines={1}>{job.title}</Text>
-          <Text style={styles.company} numberOfLines={1}>{job.companyName || 'Company'}</Text>
+          <View style={styles.companyRow}>
+            <Text style={styles.company} numberOfLines={1}>{companyName || 'Company'}</Text>
+            {ep.verificationStatus === 'approved' && (
+              <Ionicons name="checkmark-circle" size={13} color={COLORS.success} />
+            )}
+          </View>
+          {(ep.industry || ep.companySize) ? (
+            <Text style={styles.companyMeta} numberOfLines={1}>
+              {[ep.industry, ep.companySize && `${ep.companySize} employees`].filter(Boolean).join(' · ')}
+            </Text>
+          ) : null}
         </View>
         {onSave && (
           <Pressable onPress={onSave} hitSlop={10} style={styles.saveBtn}>
