@@ -12,7 +12,6 @@ const educationSchema = new mongoose.Schema(
   {
     level: {
       type: String,
-      enum: ['10th', '12th', 'diploma', 'iti', 'graduate', 'post_graduate', 'doctorate', 'other'],
     },
     degree: String, // e.g. "B.Tech Computer Science"
     institution: String,
@@ -31,7 +30,6 @@ const experienceSchema = new mongoose.Schema(
     company: { type: String, required: true },
     employmentType: {
       type: String,
-      enum: ['full_time', 'part_time', 'contract', 'freelance', 'internship'],
       default: 'full_time',
     },
     location: String,
@@ -48,7 +46,6 @@ const languageSchema = new mongoose.Schema(
     name: { type: String, required: true },
     proficiency: {
       type: String,
-      enum: ['basic', 'conversational', 'fluent', 'native'],
       default: 'conversational',
     },
     canRead: { type: Boolean, default: true },
@@ -104,7 +101,7 @@ const jobSeekerProfileSchema = new mongoose.Schema(
     // ── Job preferences ──
     preferredCategories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
     preferredJobTypes: [
-      { type: String, enum: ['full_time', 'part_time', 'contract', 'freelance', 'internship'] },
+      { type: String, },
     ],
     preferredLocations: [
       {
@@ -116,12 +113,11 @@ const jobSeekerProfileSchema = new mongoose.Schema(
       min: Number,
       max: Number,
       currency: { type: String, default: 'INR' },
-      period: { type: String, enum: ['monthly', 'yearly'], default: 'monthly' },
+      period: { type: String, default: 'monthly' },
     },
     noticePeriodDays: { type: Number, default: 0 },
     availability: {
       type: String,
-      enum: ['immediate', 'within_15_days', 'within_1_month', 'more_than_1_month'],
       default: 'immediate',
     },
     isOpenToWork: { type: Boolean, default: true },
