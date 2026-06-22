@@ -42,7 +42,7 @@ npm install        # or: yarn
 # 1) point the app at your backend (default targets Android emulator -> host localhost:4000)
 #    edit app.json -> expo.extra.apiUrl, or set EXPO_PUBLIC_API_URL
 #    Android emulator:  http://10.0.2.2:4000/api/v1
-#    iOS simulator:     http://localhost:4000/api/v1
+#    iOS simulator:     https://jobapi.adsdigitalmedia.com/api/v1
 #    real device:       http://<your-LAN-ip>:4000/api/v1
 
 # 2) Firebase (push): download google-services.json from Firebase Console

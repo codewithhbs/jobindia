@@ -9,7 +9,7 @@ import { Header } from '../../components/ui/Header';
 import { Badge, Avatar } from '../../components/ui';
 import { userApi } from '../../api/user.api';
 
-const BASE_SERVER = 'http://192.168.1.18:4000';
+const BASE_SERVER = 'https://jobapi.adsdigitalmedia.com';
 
 function fileUrl(path) {
     if (!path) return null;

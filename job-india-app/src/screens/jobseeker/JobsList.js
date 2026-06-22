@@ -200,7 +200,7 @@ const JobsList = forwardRef(function JobsList(_, ref) {
     const resultCount = jobs.length;
 
     return (
-        <Screen>
+        <Screen style={{paddingBottom:40}}>
             <Header title="Jobs" onBack={() => navigation.goBack()} />
 
             <FlatList

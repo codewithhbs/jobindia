@@ -11,7 +11,7 @@ import { toast } from '../../utils/toast';
 import { EmptyState, Loader, Screen } from '../../components/ui/Screen';
 import { Avatar, Badge } from '../../components/ui';
 
-const BASE_SERVER = 'http://192.168.1.18:4000';
+const BASE_SERVER = 'https://jobapi.adsdigitalmedia.com';
 const NEXT = { applied: 'shortlisted', shortlisted: 'interview_scheduled', interview_scheduled: 'hired' };
 
 function fileUrl(path) {

@@ -47,10 +47,9 @@ export default function HomeScreen() {
   const [category, setCategory] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation()
-  const { data: categories } = useFetch(() => adminApi.categories(), []);
-  const { data: Banners, refetch } = useFetch(() => adminApi.sliders(), [])
+  const { data: categories } = useFetch(() => adminApi.categories(user?.userId?.role === "driver" ? true:false), [refreshing]);
+  const { data: Banners, refetch } = useFetch(() => adminApi.sliders(user?.userId?.role === "driver" ? "driver" : "jobseeker"), [refreshing])
   const featuredJobsRef = useRef(null);
-
 
   const onSearch = () => featuredJobsRef.current?.refetch().catch(() => { });
   const onRefresh = useCallback(async () => {
@@ -104,7 +103,7 @@ export default function HomeScreen() {
         <View style={styles.categoriesWrap}>
           <View style={styles.categoriesTitleRow}>
             <Text style={styles.categoriesTitle}>Browse Categories</Text>
-            <Pressable onPress={() => navigation.navigate('Categories')} hitSlop={8}>
+            <Pressable onPress={() => navigation.navigate('JobsList')} hitSlop={8}>
               <Text style={styles.seeAllSmall}>See all</Text>
             </Pressable>
           </View>
@@ -126,12 +125,12 @@ export default function HomeScreen() {
         </View>
 
         {/* ---- Jobs section, fully delegated ---- */}
-        <FeaturedJobs ref={featuredJobsRef} search={search} category={category} />
+        <FeaturedJobs refreshing={refreshing} ref={featuredJobsRef} search={search} category={category} />
 
         {/* ---- Trust / good things section ---- */}
         <WhyUsSection />
 
-        <AppFooter />
+        <AppFooter refreshing={refreshing} />
       </ScrollView>
     </Screen>
   )

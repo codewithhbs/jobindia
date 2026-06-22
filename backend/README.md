@@ -43,7 +43,7 @@ backend/
 cp .env.example .env      # edit secrets
 npm install
 npm run seed              # categories, settings, plans + a superadmin (+919999999999)
-npm run dev               # http://localhost:4000
+npm run dev               # https://jobapi.adsdigitalmedia.com
 ```
 Or full stack with Mongo + Redis:
 ```bash

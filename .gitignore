@@ -76,13 +76,12 @@ desktop.ini
 # =========================
 # Backend Uploads
 # =========================
-backend/uploads/*
-!backend/uploads/.gitkeep
+
 
 # =========================
 # Firebase
 # =========================
-google-services.json
+
 GoogleService-Info.plist
 firebase-adminsdk*.json
 backend/*firebase-adminsdk*.json

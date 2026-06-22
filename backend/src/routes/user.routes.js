@@ -23,5 +23,7 @@ router.get('/', authenticate, authorize(ADMIN_ROLES), userController.listUsers);
 router.get('/stats/overview', authenticate, authorize(ADMIN_ROLES), userController.getStats);
 router.put('/:id/status', authenticate, authorize(ADMIN_ROLES), userController.updateUserStatus);
 router.get('/:id', authenticate, userController.getUser);
+router.put('/manage/:id', authenticate,authorize(ADMIN_ROLES),upload.single('avtar'), processUpload('profile_images'), userController.updateProfile);
+
 
 module.exports = router;

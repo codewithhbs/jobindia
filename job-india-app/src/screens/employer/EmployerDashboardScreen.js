@@ -10,7 +10,7 @@ import { useAuthStore } from '../../store/authStore';
 import { Loader, Screen } from '../../components/ui/Screen';
 import HomeSlider from '../../components/ui/HomeSlider';
 import { adminApi } from '../../api/admin.api';
-const BASE_SERVER = 'http://192.168.1.18:4000';
+const BASE_SERVER = 'https://jobapi.adsdigitalmedia.com';
 
 const STATUS_META = {
   approved: { label: 'Verified', color: '#22C55E' },

@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { OnboardingScreen } from '../screens/auth/OnboardingScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { OtpScreen } from '../screens/auth/OtpScreen';
+import CmsScreen from '../screens/common/CmsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -12,6 +13,8 @@ export function AuthNavigator() {
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Otp" component={OtpScreen} />
+            <Stack.Screen name="Cms" component={CmsScreen} />
+      
     </Stack.Navigator>
   );
 }

@@ -26,7 +26,7 @@ const jobSchema = new mongoose.Schema({
   },
 
   location: {
-    type: { type: String, enum: ['Point'], default: 'Point' },
+    type: { type: String, enum: ['Point'] },
     coordinates: { type: [Number], required: false }, // [lng, lat]
     address: String,
     city: { type: String, required: true },

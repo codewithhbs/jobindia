@@ -58,6 +58,7 @@ const categorySchema = new mongoose.Schema({
   icon: String,
   image: String,
   description: String,
+  is_Drivercat: { type: Boolean, default: false },
   parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
   isActive: { type: Boolean, default: true },
   order: { type: Number, default: 0 },
@@ -134,6 +135,11 @@ const homeSliderSchema = new mongoose.Schema(
     },
     redirectValue: {
       type: String, // jobId / categoryId / URL
+    },
+    type: {
+      type: String,
+      default: "jobseeker",
+      enum: ["jobseeker", "driver", "employer"]
     },
     isActive: { type: Boolean, default: true },
     order: { type: Number, default: 0 },

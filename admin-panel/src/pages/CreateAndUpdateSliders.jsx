@@ -13,6 +13,7 @@ const CreateAndUpdateSliders = () => {
 
   const [form, setForm] = useState({
     title: '',
+    type: "",  //["jobseeker","driver","employer"]
     subtitle: '',
     redirectType: 'none',
     redirectValue: '',
@@ -34,6 +35,7 @@ const CreateAndUpdateSliders = () => {
         title: data.title || '',
         subtitle: data.subtitle || '',
         redirectType: data.redirectType || 'none',
+        type: data?.type || '',
         redirectValue: data.redirectValue || '',
         order: data.order || 0,
         isActive: data.isActive ?? true,
@@ -131,6 +133,17 @@ const CreateAndUpdateSliders = () => {
           className="w-full border p-2 rounded"
         />
 
+        <select
+          name="type"
+          value={form.type}
+          onChange={handleChange}
+          className="w-full border p-2 rounded"
+        >
+          <option value="none">Select Banner Type</option>
+          <option value="jobseeker">Job Seeker</option>
+          <option value="driver">Driver Banner</option>
+          <option value="employer">Employer Banner</option>
+        </select>
         {/* Redirect Type */}
         <select
           name="redirectType"

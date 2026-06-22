@@ -17,12 +17,14 @@ import Cms from './pages/Cms';
 import Analytics from './pages/Analytics';
 import Candidates from './pages/Candidates';
 import JobForm from './pages/JobForm';
-import UserDetail from './pages/UserDetail';
 import EmployerDetail from './pages/EmployerDetail';
 import JobseekerDetail from './pages/JobseekerDetail';
 import Settings from './pages/Settings';
 import AllHomeSliders from './pages/AllHomeSliders';
 import CreateAndUpdateSliders from './pages/CreateAndUpdateSliders';
+import UserDetailDriver from './pages/UserDetailDriver';
+import UserDetailJobseeker from './pages/UserDetailJobseeker';
+import JobDetail from './pages/JobDetail';
 
 export default function App() {
   return (
@@ -35,13 +37,17 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="users" element={<Users />} />
-          <Route path="users/:id" element={<UserDetail />} />
+
+          <Route path="/users/jobseeker/:id" element={<UserDetailJobseeker />} />
+          <Route path="/users/:id" element={<UserDetailDriver />} /> {/* driver + others fallback */}
           <Route path="employers" element={<Employers />} />
           <Route path="employers/:userId" element={<EmployerDetail />} />
           <Route path="kyc" element={<Kyc />} />
           <Route path="jobs" element={<Jobs />} />
           <Route path="jobs/new" element={<JobForm />} />
           <Route path="jobs/:id/edit" element={<JobForm />} />
+          <Route path="jobs/:id/view" element={<JobDetail />} />
+
           <Route path="categories" element={<Categories />} />
           <Route path="broadcast" element={<Broadcast />} />
           <Route path="support" element={<Support />} />

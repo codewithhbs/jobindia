@@ -1,6 +1,7 @@
 import api, { unwrap } from './axios';
 
 export const API = {
+  BASE_URL:'https://jobapi.adsdigitalmedia.com',
   auth: {
     sendOtp: (phone) => unwrap(api.post('/auth/send-otp-admin', { phone })),
     verifyOtp: (payload) => unwrap(api.post('/auth/verify-otp-admin', payload)),
@@ -8,7 +9,10 @@ export const API = {
   },
   users: {
     list: (params) => api.get('/users', { params }).then((r) => r.data),
+    get: (id) => api.get(`/users/${id}`).then((r) => r.data.data),
+
     stats: () => unwrap(api.get('/users/stats/overview')),
+
     setStatus: (id, isActive) => unwrap(api.put(`/users/${id}/status`, { isActive })),
   },
   employers: {
@@ -23,6 +27,8 @@ export const API = {
   jobs: {
     list: (params) => api.get('/jobs', { params }).then((r) => r.data),
     get: (id) => unwrap(api.get(`/jobs/${id}`)),
+    getFull: (id) => unwrap(api.get(`/jobs/full/${id}`)),
+    getPendingVerification: () => unwrap(api.get(`/jobs/pending-vericiation`)),
     remove: (id) => api.delete(`/jobs/${id}`),
   },
   categories: {
@@ -66,13 +72,14 @@ export const API = {
     overview: () => unwrap(api.get('/analytics/overview')),
   },
   jobseekers: {
+    fullUpdate: (userId,body) => api.get(`/jobseekers/${userId}`, body),
     search: (params) => api.get('/jobseekers', { params }).then((r) => r.data),
   },
   manage: {
     createJob: (body) => unwrap(api.post('/jobs', body)),
     getJob: (id) => unwrap(api.get(`/jobs/${id}`)),
     updateJob: (id, body) => unwrap(api.put(`/jobs/${id}`, body)),
-    updateUser: (id, body) => unwrap(api.put(`/manage/users/${id}`, body)),
+    updateUser: (id, body) => unwrap(api.put(`/users/manage/${id}`, body)),
     getEmployer: (userId) => unwrap(api.get(`/employers/${userId}`)),
     updateEmployer: (userId, body) => unwrap(api.put(`/employers/${userId}`, body)),
     getJobseeker: (userId) => unwrap(api.get(`/manage/jobseekers/${userId}`)),

@@ -26,7 +26,7 @@ src/
 ## Run
 ```bash
 npm install
-# dev proxies /api -> http://localhost:4000 (see vite.config.js), so just run the backend too
+# dev proxies /api -> https://jobapi.adsdigitalmedia.com (see vite.config.js), so just run the backend too
 npm run dev      # http://localhost:5173
 ```
 Login with the seeded superadmin number (backend seed: `+919999999999`). In

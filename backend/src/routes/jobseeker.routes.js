@@ -23,5 +23,8 @@ router.delete('/me/experience/:itemId', authenticate, c.deleteExperience);
 // employer/admin candidate search
 router.get('/', authenticate, authorize([ROLES.EMPLOYER, ...ADMIN_ROLES]), c.searchCandidates);
 router.get('/:id', authenticate, authorize([ROLES.EMPLOYER, ...ADMIN_ROLES]), c.getPublicProfile);
+router.put('/:userId', authenticate, authorize([ROLES.EMPLOYER, ...ADMIN_ROLES]), c.fullUpdate);
+
+
 
 module.exports = router;

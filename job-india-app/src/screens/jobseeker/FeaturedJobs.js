@@ -10,12 +10,13 @@ import { useNavigation } from '@react-navigation/native';
 
 const MAX_FEATURED_JOBS = 20;
 
-export const FeaturedJobs = forwardRef(function FeaturedJobs({ search, category }, ref) {
+export const FeaturedJobs = forwardRef(
+  function FeaturedJobs({ search, category, refreshing }, ref) {
     const navigation = useNavigation();
 
     const { data: jobsRes, loading, refetch } = useFetch(
         () => jobsApi.recomended({ search: search || undefined, isFeatured: true, category: category || undefined, limit: 20 }),
-        [search, category]
+        [search, category,refreshing]
     );
 
     // Lets the parent (e.g. HomeScreen's pull-to-refresh) trigger a refetch.

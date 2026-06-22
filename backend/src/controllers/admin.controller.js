@@ -1,4 +1,4 @@
-const { Settings, FormField, Category, CMSPage, OnboardingScreen, FAQ, SubscriptionPlan ,HomeSlider} = require('../models/admin.model');
+const { Settings, FormField, Category, CMSPage, OnboardingScreen, FAQ, SubscriptionPlan, HomeSlider } = require('../models/admin.model');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 
@@ -101,18 +101,37 @@ exports.reorderFormFields = async (req, res, next) => {
 
 exports.getCategories = async (req, res, next) => {
   try {
-    const { isActive } = req.query;
-    const filter = isActive !== undefined ? { isActive: isActive === 'true' } : {};
-    const categories = await Category.find(filter).sort({ order: 1, name: 1 });
-    res.json({ success: true, data: categories });
-  } catch (error) { next(error); }
-};
+    const { isActive, is_Drivercat } = req.query;
 
+    const filter = {};
+
+    // isActive filter
+    if (isActive !== undefined) {
+      filter.isActive = isActive === "true";
+    }
+
+    // is_Drivercat filter (IMPORTANT FIX)
+    if (is_Drivercat !== undefined) {
+      filter.is_Drivercat = is_Drivercat === "true";
+    }
+
+    const categories = await Category.find(filter)
+      .sort({ order: 1, name: 1 });
+
+    res.json({
+      success: true,
+      data: categories,
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
 exports.createCategory = async (req, res, next) => {
   try {
-    const { name, icon, image, description, parentId, order } = req.body;
+    const { name, icon, image, description, parentId, order, is_Drivercat = false } = req.body;
     const slug = name.toLowerCase().replace(/\s+/g, '-');
-    const category = await Category.create({ name, slug, icon, image, description, parentId, order });
+    const category = await Category.create({ name, slug, is_Drivercat, icon, image, description, parentId, order });
     res.status(201).json({ success: true, data: category });
   } catch (error) { next(error); }
 };
@@ -149,7 +168,7 @@ exports.upsertCMSPage = async (req, res, next) => {
 
 exports.listCMSPages = async (req, res, next) => {
   try {
-    const pages = await CMSPage.find().select('slug title isActive version updatedAt').sort({ slug: 1 });
+    const pages = await CMSPage.find().select('slug title isActive content version updatedAt').sort({ slug: 1 });
     res.json({ success: true, data: pages });
   } catch (error) { next(error); }
 };
@@ -323,19 +342,37 @@ exports.upsertPlan = async (req, res, next) => {
 
 exports.getHomeSliders = async (req, res, next) => {
   try {
-    const sliders = await HomeSlider.find({ isActive: true })
+    const type = req.query.type || "jobseeker";
+
+    const query = {};
+
+    // =========================
+    // ROLE BASED FILTER
+    // =========================
+    const role = req.user?.role;
+
+    if (!(role === "admin" || role === "superadmin")) {
+      query.isActive = true;
+    }
+
+    // =========================
+    // TYPE FILTER
+    // =========================
+    if (type !== "all") {
+      query.type = type;
+    }
+
+    const sliders = await HomeSlider.find(query)
       .sort({ order: 1, createdAt: -1 });
 
-    const IMAGE_IP = process.env.IMAGE_IP;
+    const IMAGE_IP = process.env.IMAGE_IP || "";
 
     const data = sliders.map((s) => {
       const obj = s.toObject();
 
       return {
         ...obj,
-        image: obj.image
-          ? `${IMAGE_IP}${obj.image}`
-          : null,
+        image: obj.image ? `${IMAGE_IP}${obj.image}` : null,
       };
     });
 
@@ -343,6 +380,7 @@ exports.getHomeSliders = async (req, res, next) => {
       success: true,
       data,
     });
+
   } catch (error) {
     next(error);
   }
@@ -375,7 +413,9 @@ exports.createHomeSlider = async (req, res, next) => {
       title: req.body.title,
       subtitle: req.body.subtitle,
       image,
-      redirectType: req.body.redirectType || 'none',
+      redirectType: req.body.redirectType || 'jobseeker',
+      type: req.body.type || 'none',
+
       redirectValue: req.body.redirectValue,
       isActive: req.body.isActive ?? true,
       order: req.body.order || 0,
@@ -405,6 +445,8 @@ exports.updateHomeSlider = async (req, res, next) => {
     const updateData = {
       title: req.body.title,
       subtitle: req.body.subtitle,
+      type: req.body.type || 'jobseeker',
+
       redirectType: req.body.redirectType,
       redirectValue: req.body.redirectValue,
       isActive: req.body.isActive,

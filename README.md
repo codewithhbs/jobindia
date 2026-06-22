@@ -18,7 +18,7 @@ job-india-platform/
 1. **Backend**
    ```bash
    cd backend && cp .env.example .env   # set MONGODB_URI, JWT_SECRET; RAZORPAY_* optional
-   npm install && npm run seed && npm run dev      # http://localhost:4000
+   npm install && npm run seed && npm run dev      # https://jobapi.adsdigitalmedia.com
    ```
 2. **Admin panel**
    ```bash

@@ -1,9 +1,9 @@
-const { JobSeekerProfile, EmployerProfile } = require('../models');
+const { JobSeekerProfile, EmployerProfile, Category } = require('../models');
 const { Job, Application, SavedJob } = require('../models/job.model');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { enqueueSingle, enqueueRecommendJob } = require('../queue');
-
+const mongoose = require('mongoose');
 function calculateSkillMatch(userSkills = [], jobSkills = []) {
   if (!jobSkills.length) return 0;
 
@@ -18,28 +18,28 @@ function calculateSkillMatch(userSkills = [], jobSkills = []) {
 }
 
 function rankJob(job, profile) {
-  const userSkills = profile.skills || [];
+  const userSkills = profile?.skills || [];
 
 
   const skillMatch = calculateSkillMatch(userSkills, job.skills || []);
   const normalize = (s) => (s || '').toString().trim().toLowerCase();
 
   const categoryMatch =
-    profile.preferredCategories?.some(
+    profile?.preferredCategories?.some(
       (c) => normalize(c.name) === normalize(job.category)
     )
       ? 1
       : 0;
   const locationMatch =
-    profile.preferredLocations?.some(l =>
+    profile?.preferredLocations?.some(l =>
       job.location?.city?.toLowerCase() === l.city?.toLowerCase()
     ) ? 1 : 0;
 
   const experienceMatch =
-    profile.totalExperienceMonths >= (job.requirements?.experience?.min || 0) ? 1 : 0;
+    profile?.totalExperienceMonths >= (job.requirements?.experience?.min || 0) ? 1 : 0;
 
   const salaryMatch =
-    job.salary?.max >= (profile.expectedSalary?.min || 0) ? 1 : 0;
+    job.salary?.max >= (profile?.expectedSalary?.min || 0) ? 1 : 0;
 
   const freshnessBoost =
     job.createdAt ? Math.max(0, 1 - (Date.now() - job.createdAt) / (1000 * 60 * 60 * 24 * 30)) : 0;
@@ -57,7 +57,7 @@ function rankJob(job, profile) {
 
   return { ...job.toObject(), score };
 }
-// POST /api/v1/jobs
+
 // POST /api/v1/jobs
 exports.createJob = async (req, res, next) => {
   try {
@@ -77,7 +77,7 @@ exports.createJob = async (req, res, next) => {
       status,
       isFeatured
     } = req.body;
-
+    console.log( req.body)
     const { userId, role } = req.user;
 
     if (!["employer", "admin", "superadmin"].includes(role)) {
@@ -155,37 +155,29 @@ exports.createJob = async (req, res, next) => {
     }
 
     const isRemote = Boolean(location.isRemote);
+const locationData = {
+  address: location.address || "",
+  city: location.city || "",
+  state: location.state || "",
+  country: location.country || "",
+  pincode: location.pincode || "",
+  isRemote
+};
 
-    const locationData = {
-      address: location.address || "",
-      city: location.city || "",
-      state: location.state || "",
-      country: location.country || "",
-      pincode: location.pincode || "",
-      isRemote
-    };
+if (!isRemote) {
+  if (
+    Number.isNaN(latitude) ||
+    Number.isNaN(longitude) ||
+    latitude < -90 || latitude > 90 ||
+    longitude < -180 || longitude > 180
+  ) {
+    return next(new AppError("Valid latitude and longitude are required", 400));
+  }
 
-    // Only add GeoJSON for non-remote jobs
-    if (!isRemote) {
-      if (
-        Number.isNaN(latitude) ||
-        Number.isNaN(longitude) ||
-        latitude < -90 ||
-        latitude > 90 ||
-        longitude < -180 ||
-        longitude > 180
-      ) {
-        return next(
-          new AppError(
-            "Valid latitude and longitude are required",
-            400
-          )
-        );
-      }
-
-      locationData.type = "Point";
-      locationData.coordinates = [longitude, latitude];
-    }
+  locationData.type = "Point";
+  locationData.coordinates = [longitude, latitude];
+}
+// ✅ remote job ke liye type/coordinates set hi nahi karenge — schema default isse override na kare iske liye schema bhi fix karna padega (niche dekho)
 
     const job = await Job.create({
       title: title.trim(),
@@ -245,25 +237,42 @@ exports.createJob = async (req, res, next) => {
 exports.getRecommendedJobs = async (req, res, next) => {
   try {
     const { search, category } = req.query;
-    const filter = {
-      status: 'active',
-    };
-
-    // ✅ Add text search support
-    if (search) {
-      filter.$text = { $search: search };
-    }
-
-    // (optional) category filter if you want it
-    if (category) {
-      filter.category = category;
-    }
 
     const profile = await JobSeekerProfile
       .findOne({ userId: req?.user?.userId })
       .populate('preferredCategories', 'name');
 
-    const jobs = await Job.find().limit(200);
+    let jobsQuery = { status: 'active' };
+
+    // ✅ driver role → ONLY driver categories, no other jobs
+    if (req.user?.role === 'driver') {
+      const driverCategories = await Category.find(
+        { is_Drivercat: true },
+        { name: 1 }
+      );
+
+      const driverCatNames = driverCategories.map(c => c.name);
+
+      if (!driverCatNames.length) {
+        return res.json({ success: true, data: [] }); // no driver cats → no jobs
+      }
+
+      jobsQuery.category = { $in: driverCatNames };
+
+      // if category query param passed, intersect with driver cats only
+      if (category && driverCatNames.includes(category)) {
+        jobsQuery.category = category;
+      }
+    } else if (category) {
+      jobsQuery.category = category;
+    }
+
+    if (search) {
+      jobsQuery.$text = { $search: search };
+    }
+
+    const jobs = await Job.find(jobsQuery).limit(200);
+
     const ranked = jobs
       .map(job => rankJob(job, profile))
       .sort((a, b) => b.score - a.score);
@@ -272,7 +281,6 @@ exports.getRecommendedJobs = async (req, res, next) => {
 
     if (search) {
       const s = search.toLowerCase();
-
       finalJobs = ranked.filter(job =>
         job.title?.toLowerCase().includes(s) ||
         job.description?.toLowerCase().includes(s)
@@ -293,71 +301,354 @@ exports.getRecommendedJobs = async (req, res, next) => {
 exports.getJobs = async (req, res, next) => {
   try {
     const {
-      page = 1, limit = 20,
+      page = 1,
+      limit = 20,
       search,
       category,
       isFeatured,
       jobType,
-      city, state, admin,
-      lat, lng, radius,
-      salaryMin, salaryMax,
-      experience, isRemote,
+      city,
+      state,
+      admin,
+      lat,
+      lng,
+      radius,
+      salaryMin,
+      salaryMax,
+      experience,
+      isRemote,
       sortBy = 'createdAt'
     } = req.query;
-    console.log(category)
-    let filter;
 
-    if (admin === 'true') {
-      filter = {};
-    } else {
-      filter = { status: 'active' };
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+
+    let filter = {};
+
+    // =============================
+    // ADMIN vs PUBLIC FILTER
+    // =============================
+    if (admin !== 'true') {
+      filter.status = 'active';
+
+      // fetch driver categories
+      const driverCategories = await Category.find(
+        { is_Drivercat: true },
+        { name: 1 }
+      );
+
+      const driverCatNames = driverCategories.map(c => c.name);
+
+      // role-based category control
+      if (req.user?.role === 'driver') {
+        filter.category =
+          category && driverCatNames.includes(category)
+            ? category
+            : { $in: driverCatNames };
+      } else {
+        if (category) {
+          if (driverCatNames.includes(category)) {
+            return res.json({
+              success: true,
+              data: [],
+              pagination: {
+                total: 0,
+                page: pageNum,
+                limit: limitNum,
+                pages: 0
+              }
+            });
+          }
+          filter.category = category;
+        } else if (driverCatNames.length) {
+          filter.category = { $nin: driverCatNames };
+        }
+      }
     }
 
+    // =============================
+    // SEARCH
+    // =============================
     if (search) {
       filter.$text = { $search: search };
     }
-    if (category) filter.category = category;
+
+    // =============================
+    // BASIC FILTERS
+    // =============================
     if (jobType) filter.jobType = jobType;
     if (city) filter['location.city'] = new RegExp(city, 'i');
     if (state) filter['location.state'] = new RegExp(state, 'i');
-    if (isRemote === 'true') filter['location.isRemote'] = true;
-    if (salaryMin) filter['salary.min'] = { $gte: parseInt(salaryMin) };
-    if (salaryMax) filter['salary.max'] = { $lte: parseInt(salaryMax) };
-    if (experience) filter['requirements.experience.min'] = { $lte: parseInt(experience) };
-    if (isFeatured) filter.isFeatured = isFeatured
-    let query;
 
-    // Geo-based search
-    if (lat && lng) {
-      filter.location = {
-        $near: {
-          $geometry: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
-          $maxDistance: parseInt(radius || 25000)
-        }
-      };
-      query = Job.find(filter).populate('employerId');
-    } else {
-      // Sort options
-      const sortOptions = {
-        createdAt: { createdAt: -1 },
-        salary: { 'salary.max': -1 },
-        relevance: search ? { score: { $meta: 'textScore' } } : { createdAt: -1 }
-      };
-
-      query = Job.find(filter, search ? { score: { $meta: 'textScore' } } : {})
-        .sort(sortOptions[sortBy] || { isFeatured: -1, createdAt: -1 }).populate('employerId');
+    if (isRemote === 'true') {
+      filter['location.isRemote'] = true;
     }
 
-    const [jobs, total] = await Promise.all([
-      query.skip((page - 1) * limit).limit(parseInt(limit)),
-      Job.countDocuments(filter)
-    ]);
+    if (salaryMin) {
+      filter['salary.min'] = { $gte: parseInt(salaryMin) };
+    }
 
-    res.json({
+    if (salaryMax) {
+      filter['salary.max'] = { $lte: parseInt(salaryMax) };
+    }
+
+    if (experience) {
+      filter['requirements.experience.min'] = {
+        $lte: parseInt(experience)
+      };
+    }
+
+    if (isFeatured !== undefined) {
+      filter.isFeatured = isFeatured === 'true';
+    }
+
+    // =============================
+    // GEO SEARCH
+    // =============================
+    let geoStage = null;
+
+    if (lat && lng) {
+      geoStage = {
+        $geoNear: {
+          near: {
+            type: 'Point',
+            coordinates: [parseFloat(lng), parseFloat(lat)]
+          },
+          distanceField: 'distance',
+          maxDistance: parseInt(radius || 25000),
+          spherical: true,
+          query: filter
+        }
+      };
+      filter = {}; // moved into geoNear
+    }
+
+    // =============================
+    // SORTING
+    // =============================
+    const sortOptions = {
+      createdAt: { createdAt: -1 },
+      salary: { 'salary.max': -1 },
+      relevance: search
+        ? { score: { $meta: 'textScore' } }
+        : { createdAt: -1 }
+    };
+
+    const sort = sortOptions[sortBy] || {
+      isFeatured: -1,
+      createdAt: -1
+    };
+
+    // =============================
+    // AGGREGATION PIPELINE
+    // =============================
+    const pipeline = [];
+
+    if (geoStage) pipeline.push(geoStage);
+    else pipeline.push({ $match: filter });
+
+    // Employer (User join)
+    pipeline.push({
+      $lookup: {
+        from: 'users',
+        localField: 'employerId',
+        foreignField: '_id',
+        as: 'employer'
+      }
+    });
+
+    pipeline.push({
+      $unwind: {
+        path: '$employer',
+        preserveNullAndEmptyArrays: true
+      }
+    });
+
+    // EmployerProfile join (YOUR REQUIREMENT)
+    pipeline.push({
+      $lookup: {
+        from: 'employerprofiles',
+        localField: 'employer._id',
+        foreignField: 'userId',
+        as: 'employerProfile'
+      }
+    });
+
+    pipeline.push({
+      $unwind: {
+        path: '$employerProfile',
+        preserveNullAndEmptyArrays: true
+      }
+    });
+
+    // projection of text score if needed
+    if (search) {
+      pipeline.push({
+        $addFields: {
+          score: { $meta: 'textScore' }
+        }
+      });
+    }
+
+    pipeline.push({ $sort: sort });
+
+    pipeline.push({
+      $facet: {
+        data: [
+          { $skip: (pageNum - 1) * limitNum },
+          { $limit: limitNum }
+        ],
+        totalCount: [{ $count: 'count' }]
+      }
+    });
+
+    // =============================
+    // EXECUTE
+    // =============================
+    const result = await Job.aggregate(pipeline);
+
+    const jobs = result[0]?.data || [];
+    const total = result[0]?.totalCount?.[0]?.count || 0;
+
+    return res.json({
       success: true,
       data: jobs,
-      pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / limit) }
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum)
+      }
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+exports.jobDetailsForAdmin = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid job id'
+      });
+    }
+
+    // =========================
+    // 1. JOB BASIC DETAILS
+    // =========================
+    const job = await Job.findById(id).lean();
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found'
+      });
+    }
+
+    // =========================
+    // 2. EMPLOYER PROFILE
+    // =========================
+    const employerProfile = await EmployerProfile.findOne({
+      userId: job.employerId
+    }).lean();
+
+    // =========================
+    // 3. APPLICATIONS (with applicant details)
+    // =========================
+    const applications = await Application.aggregate([
+      {
+        $match: {
+          jobId: new mongoose.Types.ObjectId(id)
+        }
+      },
+
+      // applicant user details
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'applicantId',
+          foreignField: '_id',
+          as: 'applicant'
+        }
+      },
+      {
+        $unwind: {
+          path: '$applicant',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // job seeker profile
+      {
+        $lookup: {
+          from: 'jobseekerprofiles',
+          localField: 'applicantId',
+          foreignField: 'userId',
+          as: 'jobSeekerProfile'
+        }
+      },
+      {
+        $unwind: {
+          path: '$jobSeekerProfile',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      {
+        $sort: { createdAt: -1 }
+      }
+    ]);
+
+    // =========================
+    // 4. SAVED JOBS
+    // =========================
+    const savedUsers = await SavedJob.aggregate([
+      {
+        $match: {
+          jobId: new mongoose.Types.ObjectId(id)
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      {
+        $unwind: {
+          path: '$user',
+          preserveNullAndEmptyArrays: true
+        }
+      }
+    ]);
+
+    // =========================
+    // 5. RESPONSE
+    // =========================
+    return res.json({
+      success: true,
+      data: {
+        job,
+        employerProfile: employerProfile || null,
+
+        applications: {
+          total: applications.length,
+          data: applications
+        },
+
+        savedBy: {
+          total: savedUsers.length,
+          data: savedUsers
+        }
+      }
+    });
+
   } catch (error) {
     next(error);
   }
@@ -696,6 +987,31 @@ exports.saveJob = async (req, res, next) => {
     next(error);
   }
 };
+
+// POST /api/v1/jobs/pending-vericiation
+exports.getPeningJobVerication = async (req, res, next) => {
+  try {
+    const jobs = await Job.find(
+      { status: "paused" },
+      { _id: 1, title: 1, employerId: 1 }
+    )
+      .populate({
+        path: "employerId",
+        select: "name email"
+      })
+      .sort({ createdAt: -1 });
+
+    return res.json({
+      success: true,
+      count: jobs.length,
+      data: jobs
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 // GET /api/v1/jobs/saved
 exports.getSavedJobs = async (req, res, next) => {

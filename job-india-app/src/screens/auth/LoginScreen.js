@@ -7,13 +7,30 @@ import { Button } from '../../components/ui/Button';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants/theme';
 import { ROLES } from '../../constants/config';
 import { authApi } from '../../api/auth.api';
+import { adminApi } from '../../api/admin.api';
+import { useFetch } from '../../hooks/useFetch';
 import { isValidPhone, normalizePhone } from '../../utils/validators';
 import { toast } from '../../utils/toast';
 
 const ROLE_OPTIONS = [
-  { role: ROLES.JOBSEEKER, label: 'Find a Job', desc: 'I am looking for work', icon: 'briefcase-outline' },
-  { role: ROLES.EMPLOYER, label: 'Hire Talent', desc: 'I want to post jobs', icon: 'business-outline' },
-  { role: ROLES.DRIVER, label: 'Driver Jobs', desc: 'I drive / deliver', icon: 'car-outline' },
+  {
+    role: ROLES.JOBSEEKER,
+    label: 'Find a Job',
+    desc: 'Browse & apply to lakhs of openings',
+    icon: 'briefcase-outline',
+  },
+  {
+    role: ROLES.EMPLOYER,
+    label: 'Hire Talent',
+    desc: 'Post jobs & find candidates fast',
+    icon: 'business-outline',
+  },
+  {
+    role: ROLES.DRIVER,
+    label: 'Driver Jobs',
+    desc: 'Driving & delivery gigs near you',
+    icon: 'car-outline',
+  },
 ];
 
 export function LoginScreen({ navigation }) {
@@ -21,6 +38,10 @@ export function LoginScreen({ navigation }) {
   const [role, setRole] = useState(ROLES.JOBSEEKER);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const { data: setting } = useFetch(() => adminApi.publicSettings(), []);
+  const appName = setting?.app_name || 'Job India';
+  const brandColor = setting?.primary_color || COLORS.primary;
 
   const onContinue = async () => {
     const e164 = normalizePhone(phone);
@@ -41,11 +62,18 @@ export function LoginScreen({ navigation }) {
     }
   };
 
+  const openLegal = (slug, title) => {
+    navigation.navigate('Cms', { slug, title });
+  };
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <LinearGradient colors={[COLORS.heroTop, COLORS.heroBot]} style={styles.hero}>
-          <Text style={styles.logo}>Job India</Text>
+          <View style={styles.logoBadge}>
+            <Ionicons name="briefcase" size={26} color={COLORS.white} />
+          </View>
+          <Text style={styles.logo}>{appName}</Text>
           <Text style={styles.tag}>Lakhs of jobs. One app.</Text>
         </LinearGradient>
 
@@ -72,14 +100,34 @@ export function LoginScreen({ navigation }) {
           <Text style={styles.label}>I want to</Text>
           <View style={{ gap: SPACING.md }}>
             {ROLE_OPTIONS.map((o) => (
-              <RoleRow key={o.role} option={o} active={role === o.role} onPress={() => setRole(o.role)} />
+              <RoleCard
+                key={o.role}
+                option={o}
+                active={role === o.role}
+                brandColor={brandColor}
+                onPress={() => setRole(o.role)}
+              />
             ))}
           </View>
 
-          <Button title="Continue" onPress={onContinue} loading={loading} size="lg" style={{ marginTop: SPACING.lg }} />
+          <Button
+            title="Continue"
+            onPress={onContinue}
+            loading={loading}
+            size="lg"
+            style={{ marginTop: SPACING.lg }}
+          />
 
           <Text style={styles.terms}>
-            By continuing you agree to our Terms & Privacy Policy.
+            By continuing you agree to our{' '}
+            <Text style={styles.termsLink} onPress={() => openLegal('terms-conditions', 'Terms of Service')}>
+              Terms of Service
+            </Text>{' '}
+            and{' '}
+            <Text style={styles.termsLink} onPress={() => openLegal('privacy-policy', 'Privacy Policy')}>
+              Privacy Policy
+            </Text>
+            .
           </Text>
         </View>
       </ScrollView>
@@ -87,43 +135,114 @@ export function LoginScreen({ navigation }) {
   );
 }
 
-function RoleRow({ option, active, onPress }) {
+function RoleCard({ option, active, brandColor, onPress }) {
   return (
     <View
-      style={[styles.roleRow, active && { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight }]}
+      style={[
+        styles.roleCard,
+        active && {
+          borderColor: brandColor,
+          backgroundColor: COLORS.primaryLight,
+          ...SHADOWS.sm,
+        },
+      ]}
       onTouchEnd={onPress}
     >
-      <View style={[styles.roleIcon, active && { backgroundColor: COLORS.primary }]}>
-        <Ionicons name={option.icon} size={20} color={active ? COLORS.white : COLORS.primary} />
+      <View style={[styles.roleIconWrap, active && { backgroundColor: brandColor }]}>
+        <Ionicons name={option.icon} size={22} color={active ? COLORS.white : brandColor} />
       </View>
+
       <View style={{ flex: 1 }}>
-        <Text style={styles.roleLabel}>{option.label}</Text>
+        <Text style={[styles.roleLabel, active && { color: brandColor }]}>{option.label}</Text>
         <Text style={styles.roleDesc}>{option.desc}</Text>
       </View>
-      <Ionicons
-        name={active ? 'radio-button-on' : 'radio-button-off'}
-        size={22}
-        color={active ? COLORS.primary : COLORS.gray300}
-      />
+
+      <View style={[styles.radioOuter, active && { borderColor: brandColor }]}>
+        {active && <View style={[styles.radioInner, { backgroundColor: brandColor }]} />}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 1, backgroundColor: COLORS.background },
-  hero: { paddingTop: 72, paddingBottom: 40, alignItems: 'center', borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
-  logo: { fontSize: 32, fontWeight: '900', color: COLORS.white },
+  scroll: { flexGrow: 1, backgroundColor: COLORS.background ,paddingBottom:50},
+
+  hero: {
+    paddingTop: 64,
+    paddingBottom: 44,
+    alignItems: 'center',
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
+  logoBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.lg,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  logo: { fontSize: 28, fontWeight: '900', color: COLORS.white },
   tag: { color: 'rgba(255,255,255,0.85)', marginTop: 4, fontSize: FONTS.sizes.md },
+
   body: { padding: SPACING.xl, gap: SPACING.md },
   heading: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: COLORS.text },
   sub: { fontSize: FONTS.sizes.md, color: COLORS.textSecondary, marginBottom: SPACING.md },
+
   phoneRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm },
-  cc: { height: 52, paddingHorizontal: SPACING.md, borderRadius: RADIUS.lg, backgroundColor: COLORS.surfaceAlt, borderWidth: 1.5, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
+  cc: {
+    height: 52,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.surfaceAlt,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   ccText: { fontSize: FONTS.sizes.md, fontWeight: '600', color: COLORS.text },
+
   label: { fontSize: FONTS.sizes.sm, fontWeight: '700', color: COLORS.textSecondary, marginTop: SPACING.md },
-  roleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, padding: SPACING.lg, borderRadius: RADIUS.lg, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: COLORS.surface },
-  roleIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
+
+  roleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+  },
+  roleIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   roleLabel: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.text },
-  roleDesc: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary },
-  terms: { fontSize: FONTS.sizes.xs, color: COLORS.textLight, textAlign: 'center', marginTop: SPACING.md },
+  roleDesc: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 1 },
+
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: COLORS.gray300,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: { width: 11, height: 11, borderRadius: 6 },
+
+  terms: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textLight,
+    textAlign: 'center',
+    marginTop: SPACING.md,
+    lineHeight: 18,
+  },
+  termsLink: { color: COLORS.primary, fontWeight: '700' },
 });

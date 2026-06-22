@@ -213,3 +213,165 @@ exports.searchCandidates = catchAsync(async (req, res) => {
   ]);
   paginated(res, candidates, { total, page, limit });
 });
+
+
+
+
+
+
+
+
+
+ 
+const ALLOWED_PROFILE_FIELDS = [
+  'headline', 'about', 'skills', 'languages', 'certifications',
+  'totalExperienceMonths', 'currentSalary', 'preferredCategories',
+  'preferredJobTypes', 'preferredLocations', 'expectedSalary',
+  'noticePeriodDays', 'availability', 'isOpenToWork', 'willingToRelocate', 'links',
+];
+ 
+// Yeh fields kabhi-kabhi stringified JSON aate hain (form-data se), to parse karna padta hai
+const JSON_STRING_FIELDS = [
+  'skills', 'languages', 'certifications', 'preferredCategories',
+  'preferredJobTypes', 'preferredLocations', 'expectedSalary', 'links',
+];
+ 
+function safeParseIfJsonString(key, value) {
+  if (typeof value === 'string' && JSON_STRING_FIELDS.includes(key)) {
+    try {
+      return JSON.parse(value);
+    } catch (err) {
+      throw new AppError(`Invalid JSON in field "${key}"`, 400);
+    }
+  }
+  return value;
+}
+ 
+function applyProfileFields(profile, body) {
+  for (const key of ALLOWED_PROFILE_FIELDS) {
+    if (body[key] !== undefined) {
+      profile[key] = safeParseIfJsonString(key, body[key]);
+    }
+  }
+}
+ 
+function buildExperienceObject(body, existing = {}) {
+  return {
+    ...existing,
+    ...body,
+    jobTitle: body.jobTitle || body.title || existing.jobTitle,
+    company: body.company ?? existing.company,
+    employmentType: body.employmentType || existing.employmentType || 'full_time',
+    location: body.location ?? existing.location ?? '',
+    startDate: body.startDate ?? existing.startDate,
+    endDate: body.endDate ?? existing.endDate,
+    isCurrent: body.isCurrent ?? body.currentlyWorking ?? existing.isCurrent ?? false,
+    description: body.description ?? existing.description ?? '',
+  };
+}
+ 
+// ────────────────────────────────────────────────────────────
+// PUT /api/v1/jobseekers/me/full-update
+//
+// Single combined endpoint — admin/jobseeker ek hi call me yeh sab bhej sakta hai:
+//
+// {
+//   "profile": { headline, about, skills: [...], ... },   // optional
+//   "isOpenToWork": true,                                  // optional, shortcut
+//   "education": {
+//     "add": [ {degree, institution, ...}, ... ],          // optional
+//     "update": [ {itemId, ...fields}, ... ],               // optional
+//     "remove": [ "itemId1", "itemId2" ]                    // optional
+//   },
+//   "experience": {
+//     "add": [ {jobTitle, company, ...}, ... ],
+//     "update": [ {itemId, ...fields}, ... ],
+//     "remove": [ "itemId1", "itemId2" ]
+//   }
+// }
+//
+// Resume upload still ek alag multipart route se aata hai (file upload),
+// isliye usko niche separate rakha hai (mergeResumeFile helper se chahe to
+// same request me bhi handle ho sakta hai agar req.uploadedFiles aaya ho).
+// ────────────────────────────────────────────────────────────
+exports.fullUpdate = catchAsync(async (req, res, next) => {
+  const profile = await getOrInit(req.params.userId);
+  const body = req.body || {};
+ 
+  // ── 1. Plain profile fields (headline, about, skills, etc.) ──
+  if (body.profile && typeof body.profile === 'object') {
+    applyProfileFields(profile, body.profile);
+  }
+  // Bhi top-level se allowed fields support karo (backward compatible with old payloads)
+  applyProfileFields(profile, body);
+ 
+  // ── 2. Open to work shortcut ──
+  if (body.isOpenToWork !== undefined) {
+    profile.isOpenToWork = body.isOpenToWork;
+  }
+ 
+  // ── 3. Education: add / update / remove ──
+  if (body.education) {
+    const { add = [], update = [], remove = [] } = body.education;
+ 
+    for (const entry of add) {
+      profile.education.push(entry);
+    }
+ 
+    for (const entry of update) {
+      const { itemId, ...fields } = entry;
+      const item = profile.education.id(itemId);
+      if (!item) return next(new AppError(`Education entry not found: ${itemId}`, 404));
+      item.set(fields);
+    }
+ 
+    for (const itemId of remove) {
+      profile.education.pull({ _id: itemId });
+    }
+  }
+ 
+  // ── 4. Experience: add / update / remove ──
+  if (body.experience) {
+    const { add = [], update = [], remove = [] } = body.experience;
+ 
+    for (const entry of add) {
+      profile.experience.push(buildExperienceObject(entry));
+    }
+ 
+    for (const entry of update) {
+      const { itemId, ...fields } = entry;
+      const item = profile.experience.id(itemId);
+      if (!item) return next(new AppError(`Experience entry not found: ${itemId}`, 404));
+      item.set(buildExperienceObject(fields, item.toObject()));
+    }
+ 
+    for (const itemId of remove) {
+      profile.experience.pull({ _id: itemId });
+    }
+  }
+ 
+  // ── 5. Resume (agar same request multipart ke through file ke sath aaye) ──
+  const resumeInfo = req.uploadedFiles?.resume_info;
+  if (resumeInfo) {
+    profile.resume = {
+      fileUrl: resumeInfo.fileUrl,
+      fileName: resumeInfo.fileName,
+      fileType: resumeInfo.fileType,
+      uploadedAt: new Date(),
+    };
+  }
+ 
+  // ── Recompute completeness + save ──
+  profile.computeCompleteness();
+  await profile.save();
+ 
+  // ── Sync overall account completeness flag ──
+  const user = await User.findById(req.user.userId);
+  if (user && profile.profileCompleteness >= 60 && !user.isProfileComplete) {
+    user.isProfileComplete = true;
+    await user.save();
+  }
+ 
+  ok(res, profile, 'Profile fully updated');
+});
+ 

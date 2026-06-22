@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +18,24 @@ import { Avatar, Badge } from '../../components/ui';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/authStore';
 
+const DEFAULT_SUPPORT_NUMBER = '+911234567890'; // ✅ apna default support number daal de
+
+
+function formatSalaryDisplay(salary) {
+  if (!salary) return 'Not disclosed';
+  const { min, max, currency = '₹', period = 'month' } = salary;
+  if (!min && !max) return 'Not disclosed';
+  if (min && max) return `${currency}${min.toLocaleString()} - ${currency}${max.toLocaleString()} / ${period}`;
+  if (min) return `${currency}${min.toLocaleString()}+ / ${period}`;
+  return `Up to ${currency}${max.toLocaleString()} / ${period}`;
+}
+
+function formatLocationDisplay(location) {
+  if (!location) return 'Not specified';
+  const parts = [location.city, location.state].filter(Boolean);
+  if (location.isRemote) return parts.length ? `Remote • ${parts.join(', ')}` : 'Remote';
+  return parts.length ? parts.join(', ') : 'Not specified';
+}
 export default function JobDetailScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const authUser = useAuthStore((s) => s.user);
@@ -27,7 +45,7 @@ export default function JobDetailScreen({ route, navigation }) {
   const { data: profile } = useFetch(() => jobseekerApi.me(), []);
 
   // `profile` is the jobseeker doc itself (completeness, resume, etc live here).
-  // `account` is the embedded auth user (role, name, isProfileComplete live here).
+  // `account` is the embedded auth user (role, name, isProfileComplete, kyc fields live here).
   const account = profile?.userId ?? authUser ?? null;
 
   const [applying, setApplying] = useState(false);
@@ -37,6 +55,13 @@ export default function JobDetailScreen({ route, navigation }) {
   useEffect(() => {
     if (job?.applied) setApplied(true);
   }, [job]);
+
+  const isDriver = account?.role === 'driver';
+  const isEmployer = account?.role === 'employer';
+
+  // ✅ driver gate: KYC status based
+  const isKYCVerified = !!account?.isKYCVerified;
+  const kycStatus = account?.kycStatus; // 'pending' | 'rejected' | 'approved'
 
   if (loading || !job) {
     return (
@@ -65,8 +90,6 @@ export default function JobDetailScreen({ route, navigation }) {
     }
   };
 
-  // Lets the alert's "Upload Resume" button pick + upload a file, then
-  // automatically continue into the actual apply() call on success.
   const pickResumeAndApply = async () => {
     try {
       const res = await DocumentPicker.getDocumentAsync({
@@ -88,9 +111,13 @@ export default function JobDetailScreen({ route, navigation }) {
     }
   };
 
-  // Resume check happens regardless of profile completeness — this is the
-  // shared "final step" before actually applying.
+  // ✅ resume step sirf jobseeker ke liye, driver direct apply
   const checkResumeThenApply = () => {
+    if (isDriver) {
+      apply();
+      return;
+    }
+
     const hasResume = !!profile?.resume?.uploadedAt;
 
     if (!hasResume) {
@@ -110,14 +137,57 @@ export default function JobDetailScreen({ route, navigation }) {
     apply();
   };
 
+  // ✅ driver -> kyc screen, others -> EditProfile
+  const goToCompleteProfile = () => {
+    if (isDriver) {
+
+      navigation.navigate('Kyc');
+    } else {
+      navigation.navigate('EditProfile');
+    }
+  };
+
   const handleApplyPress = () => {
     if (!profile) return; // wait for the profile fetch to resolve
 
+    if (isDriver) {
+      // driver: KYC status based gate, no % completeness
+      if (!isKYCVerified) {
+        if (kycStatus === 'rejected') {
+          Alert.show({
+            variant: 'error',
+            icon: 'close-circle-outline',
+            title: 'KYC Rejected',
+            message: 'Your KYC verification was rejected. Please resubmit your documents to apply for jobs.',
+            buttons: [
+              { text: 'Later', style: 'cancel' },
+              { text: 'Resubmit KYC', style: 'primary', onPress: () => navigation.navigate('kyc') },
+            ],
+          });
+        } else {
+          // pending or not submitted
+          Alert.show({
+            variant: 'warning',
+            icon: 'time-outline',
+            title: 'KYC Pending',
+            message: 'Your KYC verification is still under review. You can apply once it’s approved.',
+            buttons: [
+              { text: 'OK', style: 'cancel' },
+              { text: 'View KYC', style: 'primary', onPress: () => navigation.navigate('kyc') },
+            ],
+          });
+        }
+        return;
+      }
+
+      checkResumeThenApply();
+      return;
+    }
+
+    // jobseeker: profile completeness % based flow
     const isProfileComplete = account?.isProfileComplete;
     const completeness = profile.profileCompleteness ?? 0;
 
-    // Under 70% (or flagged incomplete) -> nudge them to finish the profile,
-    // but "Later" still lets them go straight to the resume check + apply.
     if (!isProfileComplete || completeness < 70) {
       Alert.show({
         variant: 'warning',
@@ -126,7 +196,7 @@ export default function JobDetailScreen({ route, navigation }) {
         message: `Your profile is only ${completeness}% complete. A complete profile gets noticed faster by employers — finish it before applying, or continue for now.`,
         buttons: [
           { text: 'Later', style: 'cancel', onPress: checkResumeThenApply },
-          { text: 'Complete Profile', style: 'primary', onPress: () => navigation.navigate('EditProfile') },
+          { text: 'Complete Profile', style: 'primary', onPress: goToCompleteProfile },
         ],
       });
       return;
@@ -135,9 +205,23 @@ export default function JobDetailScreen({ route, navigation }) {
     checkResumeThenApply();
   };
 
+  // ✅ company / call card logic
+  const hasCompany = !!(job.companyName || job.companyPhone);
+  const callNumber = job.companyPhone || DEFAULT_SUPPORT_NUMBER;
+
+  const handleCall = () => {
+    Linking.openURL(`tel:${callNumber}`).catch(() =>
+      toast.error('Could not open dialer')
+    );
+  };
+
   const typeLabel = JOB_TYPES.find((t) => t.value === job.jobType)?.label || job.jobType;
-  const isEmployer = account?.role === 'employer';
-  const showCompletenessBanner = !!profile && !account?.isProfileComplete;
+
+  // ✅ banner: driver -> KYC based, jobseeker -> % based
+  const showCompletenessBanner = isDriver
+    ? !isKYCVerified
+    : (!!profile && !account?.isProfileComplete);
+
   const applyBusy = applying || uploadingResume;
 
   return (
@@ -147,12 +231,16 @@ export default function JobDetailScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {showCompletenessBanner && (
           <Pressable
-            onPress={() => navigation.navigate('EditProfile')}
+            onPress={goToCompleteProfile}
             style={({ pressed }) => [styles.completeBanner, pressed && { opacity: 0.9 }]}
           >
             <Ionicons name="alert-circle" size={18} color={COLORS.accent} />
             <Text style={styles.completeBannerText}>
-              Your profile is {profile?.profileCompleteness ?? 0}% complete — finish it to apply faster
+              {isDriver
+                ? (kycStatus === 'rejected'
+                  ? 'Your KYC was rejected — resubmit to apply for jobs'
+                  : 'Your KYC is pending review — you can apply once approved')
+                : `Your profile is ${profile?.profileCompleteness ?? 0}% complete — finish it to apply faster`}
             </Text>
             <Ionicons name="chevron-forward" size={16} color={COLORS.accent} />
           </Pressable>
@@ -173,9 +261,39 @@ export default function JobDetailScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* ✅ Company details + call, ya default support call */}
+        <View style={styles.card}>
+          {hasCompany ? (
+            <View style={styles.companyRow}>
+              <Avatar uri={job.companyLogo} name={job.companyName || job.title} size={40} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.companyName}>{job.companyName || 'Company'}</Text>
+                {job.companyPhone ? (
+                  <Text style={styles.companyPhone}>{job.companyPhone}</Text>
+                ) : (
+                  <Text style={styles.companyPhone}>Contact via support</Text>
+                )}
+              </View>
+              <Pressable onPress={handleCall} style={styles.callBtn}>
+                <Ionicons name="call" size={18} color={COLORS.surface} />
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.companyRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.companyName}>Need help with this job?</Text>
+                <Text style={styles.companyPhone}>Call our support team</Text>
+              </View>
+              <Pressable onPress={handleCall} style={styles.callBtn}>
+                <Ionicons name="call" size={18} color={COLORS.surface} />
+              </Pressable>
+            </View>
+          )}
+        </View>
+
         <View style={styles.statRow}>
-          <Stat icon="cash-outline" label="Salary" value={formatSalary(job.salary)} />
-          <Stat icon="location-outline" label="Location" value={jobLocation(job.location) || '—'} />
+          <Stat icon="cash-outline" label="Salary" value={formatSalaryDisplay(job.salary)} />
+          <Stat icon="location-outline" label="Location" value={formatLocationDisplay(job.location)} />
           <Stat icon="people-outline" label="Openings" value={String(job.vacancies || 1)} />
         </View>
 
@@ -231,7 +349,7 @@ function Stat({ icon, label, value }) {
   return (
     <View style={styles.stat}>
       <Ionicons name={icon} size={18} color={COLORS.primary} />
-      <Text style={styles.statValue} numberOfLines={1}>{value}</Text>
+      <Text style={styles.statValue} numberOfLines={4}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -264,6 +382,15 @@ const styles = StyleSheet.create({
   title: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: COLORS.text },
   company: { fontSize: FONTS.sizes.md, color: COLORS.textSecondary, marginTop: 2 },
   tags: { flexDirection: 'row', gap: SPACING.sm, flexWrap: 'wrap' },
+
+  companyRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  companyName: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.text },
+  companyPhone: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 2 },
+  callBtn: {
+    backgroundColor: COLORS.success,
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   statRow: { flexDirection: 'row', gap: SPACING.md },
   stat: {

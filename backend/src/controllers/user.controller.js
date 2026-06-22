@@ -3,6 +3,7 @@ const AppError = require('../utils/AppError');
 const { ok, paginated } = require('../utils/ApiResponse');
 const { ROLES } = require('../config/constants');
 const { User, JobSeekerProfile, EmployerProfile, DriverProfile } = require('../models');
+const { enqueueSingle } = require('../queue');
 
 const loadProfile = async (user) => {
   if (user.role === ROLES.DRIVER) return DriverProfile.findOne({ userId: user._id });
@@ -15,7 +16,8 @@ const loadProfile = async (user) => {
 exports.getUser = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.params.id).select('-__v');
   if (!user) return next(new AppError('User not found', 404));
-  ok(res, user);
+    const profile = await loadProfile(user);
+  ok(res, {user,profile});
 });
 
 // GET /api/v1/users/me/profile — self, with the role profile attached
@@ -37,16 +39,17 @@ exports.getUniversalProfile = catchAsync(async (req, res, next) => {
 
 // PUT /api/v1/users/me/profile — basic identity + avatar + device + location
 exports.updateProfile = catchAsync(async (req, res, next) => {
-  const uploaded = req.uploadedFiles
+  const uploaded = req.uploadedFiles;
   const { name, email, gender, dateOfBirth, location, fcmToken, expoPushToken, apnsToken, deviceInfo } = req.body;
+
   const update = {};
 
   if (name) update.name = name;
   if (email) update.email = email;
   if (gender) update.gender = gender;
   if (dateOfBirth) update.dateOfBirth = dateOfBirth;
-  if (uploaded.avatar) update.avatar = uploaded.avatar;
-  if (uploaded.avtar) update.avatar = uploaded.avtar; // legacy field name tolerance
+  if (uploaded?.avatar) update.avatar = uploaded.avatar;
+  if (uploaded?.avtar) update.avatar = uploaded.avtar; // legacy field name tolerance
 
   if (location) {
     const loc = typeof location === 'string' ? JSON.parse(location) : location;
@@ -56,7 +59,7 @@ exports.updateProfile = catchAsync(async (req, res, next) => {
     update['location.pincode'] = loc.pincode || '';
     update['location.country'] = loc.country || 'India';
     update['location.address'] = loc.address || '';
-    if (loc.lat && loc.lng) {
+    if (loc.lat != null && loc.lng != null) {
       update['location.type'] = 'Point';
       update['location.coordinates'] = [parseFloat(loc.lng), parseFloat(loc.lat)];
     }
@@ -79,13 +82,27 @@ exports.updateProfile = catchAsync(async (req, res, next) => {
     }
   }
 
+  // ✅ kycStatus sirf admin/superadmin set kar sakte — jobseeker/driver khud nahi
+  let kycJustApproved = false;
+  if (req.body.kycStatus && ['admin', 'superadmin'].includes(req.user.role)) {
+    update.kycStatus = req.body.kycStatus;
+    if (req.body.kycStatus === 'approved') {
+      update.isKYCVerified = true;
+      kycJustApproved = true;
+    } else if (req.body.kycStatus === 'rejected') {
+      update.isKYCVerified = false;
+    }
+  }
+
   update.lastSeen = new Date();
 
+  const userId = ['admin', 'superadmin'].includes(req.user.role) ? req.params.id : req.user.userId;
   const user = await User.findByIdAndUpdate(
-    req.user.userId,
+    userId,
     { $set: update },
     { new: true, runValidators: true }
   ).select('-__v');
+
   if (!user) return next(new AppError('User not found', 404));
 
   const isComplete = !!(user.name && user.location?.city);
@@ -94,9 +111,21 @@ exports.updateProfile = catchAsync(async (req, res, next) => {
     await user.save();
   }
 
+  // ✅ sirf jab admin ne KYC approve/reject kiya tabhi notify karo, har profile update pe nahi
+  if (req.body.kycStatus && ['admin', 'superadmin'].includes(req.user.role)) {
+    enqueueSingle({
+      userId: user._id,
+      title: kycJustApproved ? 'KYC Approved ✅' : 'KYC Status Updated',
+      body: kycJustApproved
+        ? 'Your KYC has been verified. You can now apply for jobs.'
+        : `Your KYC status has been updated to ${req.body.kycStatus}.`,
+      category: 'system',
+      data: { type: 'kyc_update', role: user.role },
+    });
+  }
+
   ok(res, user, 'Profile updated');
 });
-
 // PUT /api/v1/users/me/location
 exports.updateLocation = catchAsync(async (req, res) => {
   const { latitude, longitude, city, state, country, pincode, address } = req.body;
@@ -147,24 +176,77 @@ exports.getNearbyUsers = catchAsync(async (req, res) => {
 
 // GET /api/v1/users
 exports.listUsers = catchAsync(async (req, res) => {
-  const { page = 1, limit = 20, role, search, kycStatus, isActive } = req.query;
+  const {
+    page = 1,
+    limit = 20,
+    role,
+    search,
+    kycStatus,
+    isActive,
+    isEmailVerified,
+    isPhoneVerified,
+    isKYCVerified,
+    startDate,
+    endDate,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = req.query;
+
   const filter = {};
+
+  // ─── BASIC FILTERS ─────────────────────
   if (role) filter.role = role;
   if (kycStatus) filter.kycStatus = kycStatus;
-  if (isActive !== undefined) filter.isActive = isActive === 'true';
+
+  if (isActive !== undefined) filter.isActive = isActive === "true";
+  if (isEmailVerified !== undefined) filter.isEmailVerified = isEmailVerified === "true";
+  if (isPhoneVerified !== undefined) filter.isPhoneVerified = isPhoneVerified === "true";
+  if (isKYCVerified !== undefined) filter.isKYCVerified = isKYCVerified === "true";
+
+  // ─── DATE RANGE FILTER (IMPORTANT) ─────
+  if (startDate || endDate) {
+    filter.createdAt = {};
+
+    if (startDate) {
+      filter.createdAt.$gte = new Date(startDate);
+    }
+
+    if (endDate) {
+      filter.createdAt.$lte = new Date(endDate);
+    }
+  }
+
+  // ─── SEARCH FILTER ─────────────────────
   if (search) {
     filter.$or = [
-      { name: new RegExp(search, 'i') },
-      { phone: new RegExp(search, 'i') },
-      { email: new RegExp(search, 'i') },
+      { name: new RegExp(search, "i") },
+      { phone: new RegExp(search, "i") },
+      { email: new RegExp(search, "i") },
     ];
   }
 
+  // ─── SORT ──────────────────────────────
+  const sort = {};
+  sort[sortBy] = sortOrder === "asc" ? 1 : -1;
+
+  // ─── QUERY ─────────────────────────────
+  const skip = (Number(page) - 1) * Number(limit);
+
   const [users, total] = await Promise.all([
-    User.find(filter).select('-__v').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(parseInt(limit, 10)),
+    User.find(filter)
+      .select("-__v")
+      .sort(sort)
+      .skip(skip)
+      .limit(Number(limit)),
+
     User.countDocuments(filter),
   ]);
-  paginated(res, users, { total, page, limit });
+
+  paginated(res, users, {
+    total,
+    page: Number(page),
+    limit: Number(limit),
+  });
 });
 
 // PUT /api/v1/users/:id/status

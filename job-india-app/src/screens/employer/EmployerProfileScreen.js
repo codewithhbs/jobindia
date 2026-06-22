@@ -34,7 +34,7 @@ const EMPTY_FORM = {
   contactPerson: { name: '', designation: '', email: '', phone: '' },
   address: { street: '', city: '', state: '', country: 'India', pincode: '' },
 };
-const BASE_SERVER = 'http://192.168.1.18:4000';
+const BASE_SERVER = 'https://jobapi.adsdigitalmedia.com';
 
 export function EmployerProfileScreen({ navigation }) {
   const logout = useAuthStore((s) => s.logout);

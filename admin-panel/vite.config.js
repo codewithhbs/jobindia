@@ -7,7 +7,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       // forward /api to backend during dev so no CORS hassle
-      '/api': { target: 'http://localhost:4000', changeOrigin: true },
+      '/api': { target: 'https://jobapi.adsdigitalmedia.com', changeOrigin: true },
     },
   },
 });

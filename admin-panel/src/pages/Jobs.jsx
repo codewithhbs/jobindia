@@ -161,48 +161,88 @@ export default function Jobs() {
       {loading ? <Spinner /> : (
         <>
           <Table
-            columns={['Title', 'Company', 'Category', 'Featured', 'Status', 'Actions']}
+            columns={['Job', 'Company', 'Category', 'Featured', 'Status', 'Actions']}
             rows={rows}
             empty="No jobs found"
-            renderRow={(j) => (
-              <tr key={j._id}>
-                <td className="td font-semibold">{j.title}</td>
-                <td className="td">{j.companyName || '—'}</td>
-                <td className="td">{j.category || '—'}</td>
-                <td className="td">
-                  <input
-                    type="checkbox"
-                    checked={j.isFeatured}
-                    onChange={(e) =>
-                      updateJobField(j._id, {
-                        isFeatured: e.target.checked
-                      })
-                    }
-                  />
-                </td>
+            renderRow={(j) => {
+              const ep = j.employerProfile || {};
+              const emp = j.employer || {};
+              const logoUrl = ep.companyLogo
+                ? `${API.BASE_URL || ''}${ep.companyLogo}`
+                : null;
 
-                <td className="td">
-                  <select
-                    className="input !py-1"
-                    value={j.status}
-                    onChange={(e) => updateJobField(j._id, {
-                      status: e.target.value
-                    })}
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="active">Active</option>
-                    <option value="paused">Paused</option>
-                    <option value="closed">Closed</option>
-                  </select>
-                </td>
-                <td className="td">
-                  <div className="flex gap-2">
-                    <button onClick={() => navigate(`/jobs/${j._id}/edit`)} className="btn-outline !py-1.5 !px-3 text-xs">Edit</button>
-                    <button onClick={() => remove(j._id)} className="btn-danger !py-1.5 !px-3 text-xs">Delete</button>
-                  </div>
-                </td>
-              </tr>
-            )}
+              return (
+                <tr key={j._id}>
+                  <td className="td">
+                    <div className="font-semibold">{j.title}</div>
+                    <div className="text-xs text-gray-400">{j.location?.city}, {j.location?.state}</div>
+                  </td>
+
+                  <td className="td">
+                    <div className="flex items-center gap-3">
+                      {logoUrl ? (
+                        <img
+                          src={logoUrl}
+                          alt={ep.companyName}
+                          className="h-9 w-9 rounded-lg object-cover border border-gray-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="h-9 w-9 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-400 shrink-0">
+                          {(ep.companyName || '?').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-medium truncate max-w-[160px]">
+                          {ep.companyName || '—'}
+                        </div>
+                        <div className="text-xs text-gray-400 truncate max-w-[160px]">
+                          {ep.industry || '—'} · {ep.companySize || '—'}
+                        </div>
+                        {ep.contactPerson?.name && (
+                          <div className="text-xs text-gray-400 truncate max-w-[160px]">
+                            {ep.contactPerson.name} ({ep.contactPerson.designation || 'Contact'})
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="td">{j.category || '—'}</td>
+
+                  <td className="td">
+                    <input
+                      type="checkbox"
+                      checked={j.isFeatured}
+                      onChange={(e) =>
+                        updateJobField(j._id, { isFeatured: e.target.checked })
+                      }
+                    />
+                  </td>
+
+                  <td className="td">
+                    <select
+                      className="input !py-1"
+                      value={j.status}
+                      onChange={(e) => updateJobField(j._id, { status: e.target.value })}
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="active">Active</option>
+                      <option value="paused">Paused</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </td>
+
+                  <td className="td">
+                    <div className="flex gap-2">
+                      <button onClick={() => navigate(`/jobs/${j._id}/view`)} className="btn-outline !py-1.5 !px-3 text-xs">View</button>
+
+                      <button onClick={() => navigate(`/jobs/${j._id}/edit`)} className="btn-outline !py-1.5 !px-3 text-xs">Edit</button>
+                      <button onClick={() => remove(j._id)} className="btn-danger !py-1.5 !px-3 text-xs">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            }}
           />
 
           {/* ---- Pagination ---- */}

@@ -1,7 +1,7 @@
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
 const { ok, paginated } = require('../utils/ApiResponse');
-const { KYCDocument, KYCSubmission, User } = require('../models');
+const { KYCDocument, KYCSubmission, User, DriverProfile } = require('../models');
 const notificationService = require('../services/notification.service');
 
 // POST /api/v1/kyc/submit
@@ -33,11 +33,21 @@ exports.submitDocument = catchAsync(async (req, res) => {
 
 // GET /api/v1/kyc/status
 exports.getKYCStatus = catchAsync(async (req, res) => {
-  const submission = await KYCSubmission.findOne({ userId: req.user.userId }).populate('documents');
-  if (!submission) return ok(res, { overallStatus: 'not_submitted', documents: [] });
-  ok(res, submission);
-});
+  const submission = await User.findById(req.user.userId)
+    .populate('kycStatus');
 
+  if (!submission) {
+    return ok(res, {
+      overallStatus: null,
+      message: "User not found"
+    });
+  }
+
+  return ok(res, {
+    overallStatus: submission.kycStatus,
+    user: submission
+  });
+});
 // GET /api/v1/kyc/pending — admin
 exports.getPendingKYC = catchAsync(async (req, res) => {
   const { page = 1, limit = 20, userRole, status = 'pending' } = req.query;

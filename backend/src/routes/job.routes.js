@@ -5,6 +5,11 @@ const { authenticate, authorize, optionalAuth } = require('../middleware/authent
 
 // Public
 router.get('/',optionalAuth, jobController.getJobs);
+router.get('/full/:id',optionalAuth, jobController.jobDetailsForAdmin);
+router.get('/pending-vericiation', jobController.getPeningJobVerication);
+
+
+
 router.get('/for-home',optionalAuth, jobController.getRecommendedJobs);
 
 router.get('/nearby', jobController.getNearbyJobs);
