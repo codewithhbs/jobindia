@@ -4,24 +4,41 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../ui';
 import { COLORS, RADIUS, SPACING, FONTS } from '../../constants/theme';
 import { formatSalary, jobLocation, timeAgo } from '../../utils/format';
-import { JOB_TYPES } from '../../constants/config';
+import { BASE_API_URL, JOB_TYPES } from '../../constants/config';
+import { API_BASE_URL } from '../../constants/config';
 
 const typeLabel = (v) => JOB_TYPES.find((t) => t.value === v)?.label || v;
+
+function resolveCompany(job) {
+  const ep = job.employerProfile || {};
+  const companyName = ep.companyName || job.companyName;
+  const rawLogo = ep.companyLogo || job.companyLogo;
+  const companyLogo = rawLogo
+    ? (rawLogo.startsWith('http') ? rawLogo : `${BASE_API_URL}${rawLogo}`)
+    : null;
+  const isVerified = ep.verificationStatus === 'approved';
+  return { companyName, companyLogo, isVerified };
+}
 
 // Distinct from the generic JobCard — left accent strip, inline quick-apply,
 // salary as the visual anchor instead of a footer tag. Built for list/feed screens.
 export function JobListCard({ job, onPress, onSave, onApply, saved, applied, applying }) {
+  const { companyName, companyLogo, isVerified } = resolveCompany(job);
+
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
       <View style={styles.accent} />
 
       <View style={styles.body}>
         <View style={styles.row}>
-          <Avatar uri={job.companyLogo} name={job.companyName || job.title} size={42} />
+          <Avatar uri={companyLogo} name={companyName || job.title} size={42} />
 
           <View style={styles.titleBlock}>
             <Text style={styles.title} numberOfLines={1}>{job.title}</Text>
-            <Text style={styles.company} numberOfLines={1}>{job.companyName || 'Company'}</Text>
+            <View style={styles.companyRow}>
+              <Text style={styles.company} numberOfLines={1}>{companyName || 'Company'}</Text>
+              {isVerified && <Ionicons name="checkmark-circle" size={12} color={COLORS.success} />}
+            </View>
           </View>
 
           <Pressable onPress={onSave} hitSlop={10} style={styles.saveBtn}>
@@ -97,7 +114,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   titleBlock: { flex: 1 },
   title: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.text },
-  company: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 1 },
+  companyRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
+  company: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, flexShrink: 1 },
   saveBtn: { padding: 2 },
 
   chipsRow: { flexDirection: 'row', gap: SPACING.sm, flexWrap: 'wrap' },

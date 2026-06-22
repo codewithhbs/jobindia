@@ -4,12 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Badge, Avatar } from '../ui';
 import { COLORS, RADIUS, SPACING, FONTS, SHADOWS } from '../../constants/theme';
 import { formatSalary, jobLocation, timeAgo } from '../../utils/format';
-import { JOB_TYPES, APPLICATION_STATUS } from '../../constants/config';
+import { JOB_TYPES, APPLICATION_STATUS, BASE_API_URL } from '../../constants/config';
 
 const typeLabel = (v) => JOB_TYPES.find((t) => t.value === v)?.label || v;
 const APP_STAGE_ORDER = ['applied', 'reviewing', 'shortlisted', 'interview', 'selected'];
 const APP_REJECTED = ['rejected', 'withdrawn'];
- 
+
 function appStageIndex(status) {
   const i = APP_STAGE_ORDER.indexOf(status);
   return i === -1 ? 0 : i;
@@ -21,7 +21,7 @@ export function JobCard({ job, onPress, onSave, saved }) {
   console.log(job)
   const companyName = ep.companyName || job.companyName;
   const companyLogo = ep.companyLogo
-    ? (ep.companyLogo.startsWith('http') ? ep.companyLogo : `${API_BASE_URL}${ep.companyLogo}`)
+    ? (ep.companyLogo.startsWith('http') ? ep.companyLogo : `${BASE_API_URL}${ep.companyLogo}`)
     : job.companyLogo;
 
   return (
@@ -74,7 +74,7 @@ export function ApplicationCard({ application, onPress }) {
   const status = APPLICATION_STATUS[application.status] || { label: application.status, color: COLORS.gray500 };
   const isRejected = APP_REJECTED.includes(application.status);
   const stageIdx = appStageIndex(application.status);
- 
+
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.appCard, pressed && styles.cardPressed]}>
       <View style={styles.appTop}>
@@ -94,7 +94,7 @@ export function ApplicationCard({ application, onPress }) {
           </Text>
         </View>
       </View>
- 
+
       {!isRejected && (
         <View style={styles.timeline}>
           {APP_STAGE_ORDER.map((stage, idx) => {
@@ -109,7 +109,7 @@ export function ApplicationCard({ application, onPress }) {
           })}
         </View>
       )}
- 
+
       {isRejected && (
         <View style={styles.rejectedNote}>
           <Ionicons name="information-circle-outline" size={13} color={COLORS.textSecondary} />
@@ -121,7 +121,7 @@ export function ApplicationCard({ application, onPress }) {
     </Pressable>
   );
 }
- 
+
 function Meta({ icon, text }) {
   return (
     <View style={styles.metaItem}>
@@ -152,7 +152,7 @@ const applicationCardStyles = {
   appTop: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md },
   appMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   appliedText: { fontSize: FONTS.sizes.xs, color: COLORS.textLight },
- 
+
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -164,7 +164,7 @@ const applicationCardStyles = {
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusPillText: { fontSize: FONTS.sizes.xs, fontWeight: '700' },
- 
+
   timeline: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 },
   timelineDot: {
     width: 8, height: 8, borderRadius: 4,
@@ -174,7 +174,7 @@ const applicationCardStyles = {
   timelineDotFilled: { backgroundColor: COLORS.primary },
   timelineBar: { flex: 1, height: 2, backgroundColor: COLORS.gray200 },
   timelineBarFilled: { backgroundColor: COLORS.primary },
- 
+
   rejectedNote: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -215,7 +215,8 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   featuredRibbonText: { fontSize: 10, fontWeight: '700', color: COLORS.white },
-
+  companyRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  companyMeta: { fontSize: FONTS.sizes.xs, color: COLORS.textLight, marginTop: 1 },
   top: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   title: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.text },
   company: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 1 },
