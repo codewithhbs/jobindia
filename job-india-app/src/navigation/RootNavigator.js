@@ -15,6 +15,8 @@ import { useAuthStore } from '../store/authStore';
 import { ROLES } from '../constants/config';
 import { attachNotificationListeners } from '../services/notifications';
 import { COLORS } from '../constants/theme';
+import { authApi } from '../api/auth.api';
+import { jobseekerApi } from '../api/jobseeker.api';
 
 const navTheme = {
   ...DefaultTheme,
@@ -59,6 +61,44 @@ export function RootNavigator() {
     bootstrap();
   }, []);
 
+  // 🔄 Check role whenever navigation state changes (i.e. user navigates
+  // anywhere) instead of a fixed timer. Catches server-side role changes
+  // (admin promotes user, KYC approval flips driver status, etc.) the
+  // moment the user moves around the app — no logout/login needed.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let lastCheckedAt = 0;
+    const MIN_GAP_MS = 5000; // don't re-check more than once every 5s even if nav fires rapidly
+
+    const checkRole = async () => {
+      const now = Date.now();
+      if (now - lastCheckedAt < MIN_GAP_MS) return;
+      lastCheckedAt = now;
+
+      try {
+        const res = await jobseekerApi.me(); // adjust to your actual "get current user" endpoint
+     
+        const latestRole = res?.userId?.role || res?.role;
+        const currentRole = useAuthStore.getState().user?.userId?.role;
+
+        if (latestRole && latestRole !== currentRole) {
+          useAuthStore.setState((s) => ({
+            user: { ...s.user, userId: { ...s.user?.userId, role: latestRole } },
+          }));
+        }
+      } catch (err) {
+        console.log('Role check failed:', err.message);
+      }
+    };
+
+    // Run once immediately on auth, then on every navigation state change.
+    checkRole();
+    const unsubscribe = navRef.addListener?.('state', checkRole);
+
+    return () => unsubscribe?.();
+  }, [isAuthenticated, navRef]);
+
   useEffect(() => {
     const unsubscribe = attachNotificationListeners({
       onResponse: () => {
@@ -79,15 +119,25 @@ export function RootNavigator() {
     return <SplashScreen />;
   }
 
+  // 🔑 Resolved once, reused for both the render below and the `key`.
+  const currentRole = user?.userId?.role || 'jobseeker';
+
   return (
     <NavigationContainer
       ref={navRef}
       theme={navTheme}
     >
       {isAuthenticated ? (
-        <RoleStack role={user?.userId?.role || "jobseeker"} />
+        // key=currentRole forces React to fully unmount the previous role's
+        // navigator (JobSeekerNavigator/DriverNavigator/EmployerNavigator)
+        // and mount a brand new one instead of reconciling in place.
+        // Without this, switching jobseeker -> logout -> driver reuses the
+        // old navigator's internal navigation state (same route names =
+        // React treats it as "the same tree, just re-rendered"), so stale
+        // screens/params survive until a full app restart clears them.
+        <RoleStack key={currentRole} role={currentRole} />
       ) : (
-        <AuthNavigator />
+        <AuthNavigator key="auth" />
       )}
 
     </NavigationContainer>
