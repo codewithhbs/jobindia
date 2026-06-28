@@ -1,7 +1,7 @@
 import api, { unwrap } from './axios';
 
 export const API = {
-  BASE_URL:'https://jobapi.adsdigitalmedia.com',
+  BASE_URL: 'https://jobapi.adsdigitalmedia.com',
   auth: {
     sendOtp: (phone) => unwrap(api.post('/auth/send-otp-admin', { phone })),
     verifyOtp: (payload) => unwrap(api.post('/auth/verify-otp-admin', payload)),
@@ -10,6 +10,7 @@ export const API = {
   users: {
     list: (params) => api.get('/users', { params }).then((r) => r.data),
     get: (id) => api.get(`/users/${id}`).then((r) => r.data.data),
+    listUsers: (params) => api.get('/users/with-fcm-token', { params }).then((r) => r.data),
 
     stats: () => unwrap(api.get('/users/stats/overview')),
 
@@ -30,6 +31,10 @@ export const API = {
     getFull: (id) => unwrap(api.get(`/jobs/full/${id}`)),
     getPendingVerification: () => unwrap(api.get(`/jobs/pending-vericiation`)),
     remove: (id) => api.delete(`/jobs/${id}`),
+    exportApplications: (id) =>
+      api.get(`/jobs/${id}/applications/export`, {
+        responseType: "blob",
+      }),
   },
   categories: {
     list: () => unwrap(api.get('/admin/categories')),
@@ -38,6 +43,7 @@ export const API = {
   },
   notifications: {
     broadcast: (body) => unwrap(api.post('/notifications/broadcast', body)),
+    broadcastSelected: (body) => unwrap(api.post('/notifications/send-bulk', body)),
   },
   support: {
     list: (params) => api.get('/support', { params }).then((r) => r.data),
@@ -72,7 +78,7 @@ export const API = {
     overview: () => unwrap(api.get('/analytics/overview')),
   },
   jobseekers: {
-    fullUpdate: (userId,body) => api.get(`/jobseekers/${userId}`, body),
+    fullUpdate: (userId, body) => api.get(`/jobseekers/${userId}`, body),
     search: (params) => api.get('/jobseekers', { params }).then((r) => r.data),
   },
   manage: {
@@ -84,5 +90,11 @@ export const API = {
     updateEmployer: (userId, body) => unwrap(api.put(`/employers/${userId}`, body)),
     getJobseeker: (userId) => unwrap(api.get(`/manage/jobseekers/${userId}`)),
     updateJobseeker: (userId, body) => unwrap(api.put(`/manage/jobseekers/${userId}`, body)),
+
+    getRoleOptions: () => unwrap(api.get('/admin/role-options/all')),
+    createRoleOption: (body) => unwrap(api.post('/admin/role-options', body)),
+    updateRoleOption: (id, body) => unwrap(api.put(`/admin/role-options/${id}`, body)),
+    deleteRoleOption: (id) => unwrap(api.delete(`/admin/role-options/${id}`)),
+    reorderRoleOptions: (order) => unwrap(api.patch('/admin/role-options/reorder', { order }))
   },
 };

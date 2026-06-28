@@ -110,8 +110,11 @@ exports.getCategories = async (req, res, next) => {
       filter.isActive = isActive === "true";
     }
 
-    // is_Drivercat filter (IMPORTANT FIX)
-    if (is_Drivercat !== undefined) {
+    // is_Drivercat filter
+    if (
+      is_Drivercat !== undefined &&
+      is_Drivercat !== "all"
+    ) {
       filter.is_Drivercat = is_Drivercat === "true";
     }
 

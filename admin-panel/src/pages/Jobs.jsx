@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, X, ChevronLeft, ChevronRight, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { API } from '../lib/api';
 import { useFetch } from './_useFetch';
@@ -14,10 +14,62 @@ const SORT_OPTIONS = [
   { value: 'relevance', label: 'Relevance (needs search)' },
 ];
 
+// Full status enum from schema — dropdown must cover all of these
+const JOB_STATUSES = ['draft', 'active', 'paused', 'closed', 'expired', 'verified', 'rejected'];
+
 const DEFAULT_FILTERS = {
   search: '', category: '', jobType: '', city: '', state: '',
   isRemote: '', salaryMin: '', salaryMax: '', sortBy: 'createdAt',
 };
+
+const DEFAULT_EXPIRY_DAYS = 7;
+
+// ── Days until expiry, with createdAt+7d fallback when expiryDate missing ──
+function getExpiryInfo(job) {
+  let expiryDate = job.expiryDate;
+  let isFallback = false;
+
+  if (!expiryDate) {
+    const base = new Date(job.createdAt || job.publishedAt || Date.now());
+    base.setDate(base.getDate() + DEFAULT_EXPIRY_DAYS);
+    expiryDate = base;
+    isFallback = true;
+  } else {
+    expiryDate = new Date(expiryDate);
+  }
+
+  const target = new Date(expiryDate);
+  target.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((target - today) / 86400000);
+
+  return { date: expiryDate, days, isFallback };
+}
+
+function ExpiryCell({ job }) {
+  const { date, days, isFallback } = getExpiryInfo(job);
+  const dateLabel = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  let variant = 'success';
+  let text = `${days}d left`;
+  if (days < 0) { variant = 'danger'; text = `Expired ${Math.abs(days)}d ago`; }
+  else if (days === 0) { variant = 'danger'; text = 'Expires today'; }
+  else if (days <= 3) { variant = 'warning'; text = `${days}d left`; }
+
+  return (
+    <div>
+      <Badge variant={variant}>
+        {days <= 3 && <AlertTriangle size={11} className="inline mr-1 -mt-0.5" />}
+        {text}
+      </Badge>
+      <div className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+        <Clock size={11} /> {dateLabel}
+        {isFallback && <span className="text-gray-300">(default 7d)</span>}
+      </div>
+    </div>
+  );
+}
 
 export default function Jobs() {
   const navigate = useNavigate();
@@ -161,7 +213,7 @@ export default function Jobs() {
       {loading ? <Spinner /> : (
         <>
           <Table
-            columns={['Job', 'Company', 'Category', 'Featured', 'Status', 'Actions']}
+            columns={['Job', 'Company', 'Category', 'Expiry', 'Featured', 'Status', 'Actions']}
             rows={rows}
             empty="No jobs found"
             renderRow={(j) => {
@@ -210,6 +262,10 @@ export default function Jobs() {
                   <td className="td">{j.category || '—'}</td>
 
                   <td className="td">
+                    <ExpiryCell job={j} />
+                  </td>
+
+                  <td className="td">
                     <input
                       type="checkbox"
                       checked={j.isFeatured}
@@ -225,10 +281,9 @@ export default function Jobs() {
                       value={j.status}
                       onChange={(e) => updateJobField(j._id, { status: e.target.value })}
                     >
-                      <option value="draft">Draft</option>
-                      <option value="active">Active</option>
-                      <option value="paused">Paused</option>
-                      <option value="closed">Closed</option>
+                      {JOB_STATUSES.map((s) => (
+                        <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                      ))}
                     </select>
                   </td>
 

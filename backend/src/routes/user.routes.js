@@ -8,6 +8,7 @@ const { ADMIN_ROLES } = require('../config/constants');
 // self
 router.get('/me/profile', authenticate, userController.getProfile);
 router.get('/profile/:id', userController.getUniversalProfile);
+router.get('/with-fcm-token', authenticate, authorize(ADMIN_ROLES), userController.getUsersWithFcmToken);
 
 
 router.put('/me/profile', authenticate, upload.single('avtar'), processUpload('profile_images'), userController.updateProfile);
@@ -23,7 +24,6 @@ router.get('/', authenticate, authorize(ADMIN_ROLES), userController.listUsers);
 router.get('/stats/overview', authenticate, authorize(ADMIN_ROLES), userController.getStats);
 router.put('/:id/status', authenticate, authorize(ADMIN_ROLES), userController.updateUserStatus);
 router.get('/:id', authenticate, userController.getUser);
-router.put('/manage/:id', authenticate,authorize(ADMIN_ROLES),upload.single('avtar'), processUpload('profile_images'), userController.updateProfile);
-
+router.put('/manage/:id', authenticate, authorize(ADMIN_ROLES), upload.single('avtar'), processUpload('profile_images'), userController.updateProfile);
 
 module.exports = router;

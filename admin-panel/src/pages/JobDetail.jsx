@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, MapPin, Briefcase, Users, Eye, Bookmark, Calendar,
   Globe, Mail, Phone, Building2, BadgeCheck, ExternalLink, Award,
+  Clock, AlertTriangle, IdCard, Truck, Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { API } from '../lib/api';
@@ -43,6 +44,25 @@ function timeAgo(d) {
   return formatDate(d);
 }
 
+// ── Countdown to a date — days left, with expired/today states ──
+function daysUntil(d) {
+  if (!d) return null;
+  const target = new Date(d);
+  target.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((target - today) / 86400000);
+}
+
+function ExpiryBadge({ date }) {
+  const days = daysUntil(date);
+  if (days === null) return <Badge variant="gray">—</Badge>;
+  if (days < 0) return <Badge variant="danger">Expired {Math.abs(days)}d ago</Badge>;
+  if (days === 0) return <Badge variant="danger">Expires today</Badge>;
+  if (days <= 3) return <Badge variant="warning">{days}d left</Badge>;
+  return <Badge variant="success">{days}d left</Badge>;
+}
+
 function StatCard({ icon: Icon, label, value }) {
   return (
     <div className="card p-4 flex items-center gap-3">
@@ -80,8 +100,42 @@ export default function JobDetail() {
   if (!data) return <div className="text-center text-gray-400 py-10">Job not found</div>;
 
   const { job, employerProfile: ep = {}, applications = { total: 0, data: [] }, savedBy = { total: 0, data: [] } } = data;
-  const logoUrl = ep.companyLogo ? `${API.BASE_URL || ''}${ep.companyLogo}` : null;
+  const logoUrl = ep.companyLogo || job.companyLogo || null;
+  const expiryDays = daysUntil(job.expiryDate);
 
+  const downLoad = async () => {
+    try {
+      const response = await API.jobs.exportApplications(job._id);
+
+      const blob = new Blob([response.data], {
+        type: response.headers["content-type"],
+      });
+
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+
+      // Get filename from Content-Disposition header
+      const disposition = response.headers["content-disposition"];
+      let fileName = "applications.xlsx";
+
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match) fileName = match[1];
+      }
+
+      link.download = fileName;
+
+      document.body.appendChild(link);
+      link.click();
+
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error("Failed to download Excel");
+    }
+  };
   const remove = async () => {
     if (!confirm('Delete this job?')) return;
     try {
@@ -106,6 +160,7 @@ export default function JobDetail() {
               <h1 className="text-2xl font-extrabold">{job.title}</h1>
               <Badge variant={STATUS_VARIANT[job.status] || 'gray'}>{job.status}</Badge>
               {job.isFeatured && <Badge variant="warning">Featured</Badge>}
+              <ExpiryBadge date={job.expiryDate} />
             </div>
             <div className="text-sm text-gray-500 mt-1 flex items-center gap-1">
               <MapPin size={14} />
@@ -117,6 +172,31 @@ export default function JobDetail() {
         <div className="flex gap-2 shrink-0">
           <button onClick={() => navigate(`/jobs/${job._id}/edit`)} className="btn-outline">Edit</button>
           <button onClick={remove} className="btn-danger">Delete</button>
+        </div>
+      </div>
+
+      {/* ---- Expiry strip ---- */}
+      <div className={`card p-4 flex items-center gap-3 ${expiryDays !== null && expiryDays <= 3 ? 'border-l-4 border-l-amber-500' : ''}`}>
+        <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+          {expiryDays !== null && expiryDays <= 3 ? (
+            <AlertTriangle size={18} className="text-amber-500" />
+          ) : (
+            <Clock size={18} className="text-gray-500" />
+          )}
+        </div>
+        <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div>
+            <div className="text-xs text-gray-400">Application deadline</div>
+            <div className="font-medium text-sm">{formatDate(job.applicationDeadline)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-400">Job expires</div>
+            <div className="font-medium text-sm">{formatDate(job.expiryDate)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-400">Time left</div>
+            <div className="font-medium text-sm"><ExpiryBadge date={job.expiryDate} /></div>
+          </div>
         </div>
       </div>
 
@@ -141,6 +221,10 @@ export default function JobDetail() {
                 <div className="font-medium">{job.category || '—'}</div>
               </div>
               <div>
+                <div className="text-xs text-gray-400">Sub category</div>
+                <div className="font-medium">{job.subCategory || '—'}</div>
+              </div>
+              <div>
                 <div className="text-xs text-gray-400">Job type</div>
                 <div className="font-medium capitalize">{job.jobType?.replace('_', ' ') || '—'}</div>
               </div>
@@ -149,20 +233,63 @@ export default function JobDetail() {
                 <div className="font-medium">{formatSalary(job.salary)}</div>
               </div>
               <div>
+                <div className="text-xs text-gray-400">Negotiable</div>
+                <div className="font-medium">{job.salary?.isNegotiable ? 'Yes' : 'No'}</div>
+              </div>
+              <div>
                 <div className="text-xs text-gray-400">Experience</div>
                 <div className="font-medium">
-                  {job.requirements?.experience?.min ?? 0}+ {job.requirements?.experience?.unit || 'years'}
+                  {job.requirements?.experience?.min ?? 0}
+                  {job.requirements?.experience?.max ? `–${job.requirements.experience.max}` : '+'} {job.requirements?.experience?.unit || 'years'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400">Education</div>
+                <div className="font-medium capitalize">{job.requirements?.education || '—'}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400">Gender</div>
+                <div className="font-medium capitalize">{job.requirements?.gender || 'Any'}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400">Age range</div>
+                <div className="font-medium">
+                  {job.requirements?.ageMin || job.requirements?.ageMax
+                    ? `${job.requirements?.ageMin ?? '—'} – ${job.requirements?.ageMax ?? '—'} yrs`
+                    : '—'}
                 </div>
               </div>
               <div>
                 <div className="text-xs text-gray-400">Published</div>
                 <div className="font-medium">{formatDate(job.publishedAt)}</div>
               </div>
-              <div>
-                <div className="text-xs text-gray-400">Gender</div>
-                <div className="font-medium capitalize">{job.requirements?.gender || 'Any'}</div>
-              </div>
             </div>
+
+            {/* License & Vehicle */}
+            {(job.requirements?.licenseRequired || job.requirements?.vehicleRequired) && (
+              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100">
+                {job.requirements?.licenseRequired && (
+                  <div>
+                    <div className="text-xs text-gray-400 mb-2 flex items-center gap-1"><IdCard size={12} /> License required</div>
+                    <div className="flex gap-2 flex-wrap">
+                      {(job.requirements.licenseType || []).map((l) => (
+                        <span key={l} className="px-2.5 py-1 rounded-full bg-indigo-50 text-xs font-medium text-indigo-700">{l}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {job.requirements?.vehicleRequired && (
+                  <div>
+                    <div className="text-xs text-gray-400 mb-2 flex items-center gap-1"><Truck size={12} /> Vehicle required</div>
+                    <div className="flex gap-2 flex-wrap">
+                      {(job.requirements.vehicleType || []).map((v) => (
+                        <span key={v} className="px-2.5 py-1 rounded-full bg-blue-50 text-xs font-medium text-blue-700 capitalize">{v}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {job.requirements?.skills?.length > 0 && (
               <div className="mt-4 pt-4 border-t border-gray-100">
@@ -170,6 +297,28 @@ export default function JobDetail() {
                 <div className="flex gap-2 flex-wrap">
                   {job.requirements.skills.map((s) => (
                     <span key={s} className="px-2.5 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-600">{s}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {job.requirements?.languages?.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="text-xs text-gray-400 mb-2">Languages</div>
+                <div className="flex gap-2 flex-wrap">
+                  {job.requirements.languages.map((l) => (
+                    <span key={l} className="px-2.5 py-1 rounded-full bg-purple-50 text-xs font-medium text-purple-700">{l}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {job.tags?.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="text-xs text-gray-400 mb-2">Tags</div>
+                <div className="flex gap-2 flex-wrap">
+                  {job.tags.map((t) => (
+                    <span key={t} className="px-2.5 py-1 rounded-full bg-orange-50 text-xs font-medium text-orange-700">{t}</span>
                   ))}
                 </div>
               </div>
@@ -202,13 +351,22 @@ export default function JobDetail() {
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
-                    tab === t.key ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
+                  className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${tab === t.key ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
                 >
                   {t.label}
                 </button>
               ))}
+              {tab === 'applications' && applications.total > 0 && (
+                <button
+                  type="button"
+                  onClick={downLoad}
+                  className="btn-outline !py-1.5 !px-3 text-xs flex items-center gap-1.5 mr-3 shrink-0"
+                >
+                  <Download size={14} />
+                  Export Excel
+                </button>
+              )}
             </div>
 
             <div className="p-4">
@@ -305,8 +463,16 @@ export default function JobDetail() {
                 <div className="font-medium capitalize">{ep.subscriptionPlan || '—'}</div>
               </div>
               <div>
+                <div className="text-xs text-gray-400">Plan expires</div>
+                <div className="font-medium">{formatDate(ep.subscriptionExpiry)}</div>
+              </div>
+              <div>
                 <div className="text-xs text-gray-400">Jobs posted</div>
                 <div className="font-medium">{ep.totalJobsPosted ?? 0} ({ep.activeJobs ?? 0} active)</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400">Job limit</div>
+                <div className="font-medium">{ep.jobPostLimit ?? '—'}</div>
               </div>
               <div>
                 <div className="text-xs text-gray-400">GST</div>

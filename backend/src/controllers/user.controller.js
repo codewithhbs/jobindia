@@ -29,6 +29,28 @@ exports.getProfile = catchAsync(async (req, res, next) => {
 });
 
 
+exports.getUsersWithFcmToken = catchAsync(async (req, res) => {
+  const { role, search } = req.query;
+
+  const filter = {
+    fcmToken: { $exists: true, $nin: [null, ''] },
+  };
+
+  if (role) filter.role = role;
+
+  if (search) {
+    filter.$or = [
+      { name: new RegExp(search, 'i') },
+      { phone: new RegExp(search, 'i') },
+      { email: new RegExp(search, 'i') },
+    ];
+  }
+
+  const users = await User.find(filter).select('_id name role phone');
+
+  ok(res, users);
+});
+
 // GET /api/v1/users/profile/:id — self, with the role profile attached
 exports.getUniversalProfile = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.params.id).select('-__v -deviceInfo -isKYCVerified -isEmailVerified -isPhoneVerified -fcmToken');

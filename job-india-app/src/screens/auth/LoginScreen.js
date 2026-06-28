@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Input } from '../../components/ui';
@@ -12,41 +12,46 @@ import { useFetch } from '../../hooks/useFetch';
 import { isValidPhone, normalizePhone } from '../../utils/validators';
 import { toast } from '../../utils/toast';
 
-const ROLE_OPTIONS = [
-  {
-    role: ROLES.JOBSEEKER,
-    label: 'Find a Job',
-    desc: 'Browse & apply to lakhs of openings',
-    icon: 'briefcase-outline',
-  },
-  {
-    role: ROLES.EMPLOYER,
-    label: 'Hire Talent',
-    desc: 'Post jobs & find candidates fast',
-    icon: 'business-outline',
-  },
-  {
-    role: ROLES.DRIVER,
-    label: 'Driver Jobs',
-    desc: 'Driving & delivery gigs near you',
-    icon: 'car-outline',
-  },
+// fallback agar API fail ho jaye ya admin ne config na kiya ho
+const DEFAULT_ROLE_OPTIONS = [
+  { role: ROLES.JOBSEEKER, label: 'Find a Job', desc: 'Browse & apply to lakhs of openings', icon: 'briefcase-outline' },
+  { role: ROLES.EMPLOYER, label: 'Hire Talent', desc: 'Post jobs & find candidates fast', icon: 'business-outline' },
+  { role: ROLES.DRIVER, label: 'Driver Jobs', desc: 'Driving & delivery gigs near you', icon: 'car-outline' },
 ];
 
 export function LoginScreen({ navigation }) {
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState(ROLES.JOBSEEKER);
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const { data: setting } = useFetch(() => adminApi.publicSettings(), []);
-  const appName = setting?.app_name || 'Job India';
+  const { data: roleOptionsData, loading: roleOptionsLoading } = useFetch(() => adminApi.roleOptions(), []);
+
+  const appName = setting?.app_name || 'Krishna Job';
+  const appLogo = setting?.app_logo;
   const brandColor = setting?.primary_color || COLORS.primary;
+
+  // backend se aaya array use karo, warna fallback
+  const roleOptions = Array.isArray(roleOptionsData) && roleOptionsData.length > 0
+    ? roleOptionsData
+    : DEFAULT_ROLE_OPTIONS;
+
+  // pehli baar options load hone par default role select kar do
+  React.useEffect(() => {
+    if (!role && roleOptions.length > 0) {
+      setRole(roleOptions[0].role);
+    }
+  }, [roleOptions, role]);
 
   const onContinue = async () => {
     const e164 = normalizePhone(phone);
     if (!isValidPhone(e164)) {
       setError('Enter a valid 10-digit mobile number');
+      return;
+    }
+    if (!role) {
+      toast.error('Select an option', 'Please choose what you want to do');
       return;
     }
     setError('');
@@ -69,11 +74,17 @@ export function LoginScreen({ navigation }) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <LinearGradient colors={[COLORS.heroTop, COLORS.heroBot]} style={styles.hero}>
-          <View style={styles.logoBadge}>
-            <Ionicons name="briefcase" size={26} color={COLORS.white} />
-          </View>
-          <Text style={styles.logo}>{appName}</Text>
+        <LinearGradient colors={[COLORS.primaryMid, COLORS.white]} style={styles.hero}>
+          {appLogo ? (
+            <Image source={{ uri: appLogo }} style={styles.logoImage} resizeMode="contain" />
+          ) : (
+            <>
+              <View style={styles.logoBadge}>
+                <Ionicons name="briefcase" size={26} color={COLORS.white} />
+              </View>
+              <Text style={styles.logo}>{appName}</Text>
+            </>
+          )}
           <Text style={styles.tag}>Lakhs of jobs. One app.</Text>
         </LinearGradient>
 
@@ -98,17 +109,22 @@ export function LoginScreen({ navigation }) {
           </View>
 
           <Text style={styles.label}>I want to</Text>
-          <View style={{ gap: SPACING.md }}>
-            {ROLE_OPTIONS.map((o) => (
-              <RoleCard
-                key={o.role}
-                option={o}
-                active={role === o.role}
-                brandColor={brandColor}
-                onPress={() => setRole(o.role)}
-              />
-            ))}
-          </View>
+
+          {roleOptionsLoading ? (
+            <ActivityIndicator color={brandColor} style={{ marginVertical: SPACING.md }} />
+          ) : (
+            <View style={{ gap: SPACING.md }}>
+              {roleOptions.map((o) => (
+                <RoleCard
+                  key={o.role}
+                  option={o}
+                  active={role === o.role}
+                  brandColor={brandColor}
+                  onPress={() => setRole(o.role)}
+                />
+              ))}
+            </View>
+          )}
 
           <Button
             title="Continue"
@@ -165,7 +181,7 @@ function RoleCard({ option, active, brandColor, onPress }) {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 1, backgroundColor: COLORS.background ,paddingBottom:50},
+  scroll: { flexGrow: 1, backgroundColor: COLORS.background, paddingBottom: 50 },
 
   hero: {
     paddingTop: 64,
@@ -174,6 +190,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
   },
+  logoImage: { width: 160, height: 64, marginBottom: SPACING.sm },
   logoBadge: {
     width: 56,
     height: 56,
@@ -184,7 +201,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   logo: { fontSize: 28, fontWeight: '900', color: COLORS.white },
-  tag: { color: 'rgba(255,255,255,0.85)', marginTop: 4, fontSize: FONTS.sizes.md },
+  tag: { color: COLORS.primary, marginTop: 4, fontSize: FONTS.sizes.md },
 
   body: { padding: SPACING.xl, gap: SPACING.md },
   heading: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: COLORS.text },

@@ -39,7 +39,7 @@ export function OtpScreen({ route, navigation }) {
     try {
       const data = await authApi.verifyOtp({ phone, otp, role, purpose: 'login' });
       await setSession(data);
-      registerForPushNotifications().catch(() => {});
+      registerForPushNotifications().catch(() => { });
       toast.success('Welcome!', 'Logged in successfully');
       // RootNavigator switches to the role stack automatically once authenticated.
     } catch (err) {

@@ -1,27 +1,39 @@
 import React, { forwardRef, useState, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import {
     View, Text, TextInput, FlatList, StyleSheet, RefreshControl,
-    ActivityIndicator, Alert, Pressable,
+    ActivityIndicator, Alert, Pressable, Platform, Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
+import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { jobsApi } from '../../api/jobs.api';
+import { adminApi } from '../../api/admin.api';
 import { useAuthStore } from '../../store/authStore';
 import { COLORS, RADIUS, SPACING, FONTS, SHADOWS } from '../../constants/theme';
 import { EmptyState, Loader, Screen } from '../../components/ui/Screen';
 import { Header } from '../../components/ui/Header';
 import { JobListCard } from '../../components/cards/JobListCard';
-import { FilterBar } from '../../components/cards/FilterBar';
+import { Input } from '../../components/ui';
+import { useFetch } from '../../hooks/useFetch';
 
 const PAGE_LIMIT = 15;
+const KM_OPTIONS = [
+    { value: '5', label: '5 km' },
+    { value: '10', label: '10 km' },
+    { value: '15', label: '15 km' },
+    { value: '20', label: '20 km' },
+    { value: '25', label: '25 km' },
+];
+
+// TODO: replace with your own Google Places API key.
+const GOOGLE_PLACES_API_KEY = 'AIzaSyDnyLLiPykuaRbCKZEmBPa0jzdiB61qRpc';
 
 const MODES = [
     { key: 'recommended', label: 'Recommended', icon: 'sparkles-outline' },
     { key: 'all', label: 'All jobs', icon: 'grid-outline' },
 ];
 
-// merge two job lists, keeping first occurrence of each _id
 function dedupeJobs(list) {
     const seen = new Set();
     const out = [];
@@ -34,16 +46,184 @@ function dedupeJobs(list) {
     return out;
 }
 
-const JobsList = forwardRef(function JobsList(_, ref) {
+// ---- Picker wrapper: native dropdown(Android)/modal sheet(iOS). No z-index ever. ----
+function PickerField({ value, options, onChange, placeholder = 'Select' }) {
+    const [iosVisible, setIosVisible] = useState(false);
+    const [tempValue, setTempValue] = useState(value);
+
+    const selectedLabel = options.find((o) => o.value === value)?.label;
+
+    if (Platform.OS === 'android') {
+        return (
+            <View style={styles.pickerBoxAndroid}>
+                <Picker
+                    selectedValue={value}
+                    onValueChange={(v) => onChange(v)}
+                    style={styles.pickerAndroidInner}
+                    dropdownIconColor={COLORS.textSecondary}
+                    mode="dropdown"
+                >
+                    {options.map((opt) => (
+                        <Picker.Item key={opt.value || 'all'} label={opt.label} value={opt.value} />
+                    ))}
+                </Picker>
+            </View>
+        );
+    }
+
+    return (
+        <>
+            <Pressable
+                onPress={() => { setTempValue(value); setIosVisible(true); }}
+                style={styles.pickerBoxIos}
+            >
+                <Text
+                    numberOfLines={1}
+                    style={[styles.pickerBoxText, !selectedLabel && { color: COLORS.textLight }]}
+                >
+                    {selectedLabel || placeholder}
+                </Text>
+                <Ionicons name="chevron-down" size={12} color={COLORS.textLight} />
+            </Pressable>
+
+            <Modal visible={iosVisible} transparent animationType="slide" onRequestClose={() => setIosVisible(false)}>
+                <Pressable style={styles.iosBackdrop} onPress={() => setIosVisible(false)} />
+                <View style={styles.iosSheet}>
+                    <View style={styles.iosSheetHeader}>
+                        <Pressable onPress={() => setIosVisible(false)}>
+                            <Text style={styles.iosCancel}>Cancel</Text>
+                        </Pressable>
+                        <Pressable onPress={() => { onChange(tempValue); setIosVisible(false); }}>
+                            <Text style={styles.iosDone}>Done</Text>
+                        </Pressable>
+                    </View>
+                    <Picker selectedValue={tempValue} onValueChange={setTempValue}>
+                        {options.map((opt) => (
+                            <Picker.Item key={opt.value || 'all'} label={opt.label} value={opt.value} />
+                        ))}
+                    </Picker>
+                </View>
+            </Modal>
+        </>
+    );
+}
+
+// ---- Combined filter section: GPS + category + km row, then area search ----
+function JobSearchFilters({
+    categories, category, onCategoryChange,
+    areaInput, onAreaInputChange, onSubmitArea, onUseCurrentLocation, geocoding, locLoading,
+    suggestions, suggestLoading, onSelectSuggestion,
+    areaCoords,
+    radiusKm, onRadiusChange,
+    onClear,
+}) {
+    const categoryOptions = [
+        { value: '', label: 'categories' },
+        ...(categories || []).map((c) => ({ value: c.name, label: c.name })),
+    ];
+
+    const hasActiveFilters = !!(category || areaCoords || radiusKm);
+
+    return (
+        <View style={styles.filterCard}>
+            {/* ---- Row 1: GPS, category, km ---- */}
+            <View style={styles.filterRow1}>
+                <Pressable onPress={onUseCurrentLocation} style={styles.locPinBtn} hitSlop={8}>
+                    {locLoading ? (
+                        <ActivityIndicator size="small" color={COLORS.primary} />
+                    ) : (
+                        <Ionicons name="locate" size={18} color={COLORS.primary} />
+                    )}
+                </Pressable>
+
+                <View style={styles.categoryWrap}>
+                    <PickerField
+                        value={category}
+                        options={categoryOptions}
+                        onChange={(v) => onCategoryChange(v)}
+                        placeholder="Categories"
+                    />
+                </View>
+
+                <View style={styles.kmWrap}>
+                    <PickerField
+                        value={radiusKm}
+                        options={KM_OPTIONS}
+                        onChange={onRadiusChange}
+                        placeholder="Km"
+                    />
+                </View>
+            </View>
+
+            {/* ---- Row 2: area / location search ---- */}
+            <Input
+                placeholder="Search by location"
+                value={areaInput}
+                onChangeText={onAreaInputChange}
+                onSubmitEditing={onSubmitArea}
+                returnKeyType="search"
+            />
+
+            {suggestLoading && <Text style={styles.areaHint}>Searching places...</Text>}
+
+            {suggestions?.length > 0 && (
+                <View style={styles.suggestionsBox}>
+                    {suggestions.map((s) => (
+                        <Pressable
+                            key={s.place_id}
+                            onPress={() => onSelectSuggestion(s)}
+                            style={styles.suggestionRow}
+                        >
+                            <Ionicons name="location-outline" size={15} color={COLORS.textSecondary} />
+                            <Text style={styles.suggestionText} numberOfLines={1}>{s.description}</Text>
+                        </Pressable>
+                    ))}
+                </View>
+            )}
+
+            {geocoding && (
+                <Text style={styles.areaHint}>Finding "{areaInput}"...</Text>
+            )}
+            {areaCoords?.label ? (
+                <View style={styles.areaResolvedRow}>
+                    <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
+                    <Text style={styles.areaResolvedText} numberOfLines={1}>{areaCoords.label}</Text>
+                </View>
+            ) : null}
+            {!areaCoords && (
+                <Text style={styles.areaHint}>Set a location above to filter by distance</Text>
+            )}
+
+            {hasActiveFilters ? (
+                <Pressable onPress={onClear} style={styles.filterClearBtn}>
+                    <Ionicons name="close-circle-outline" size={14} color={COLORS.textSecondary} />
+                    <Text style={styles.filterClearText}>Clear filters</Text>
+                </Pressable>
+            ) : null}
+        </View>
+    );
+}
+
+const JobsList = forwardRef(function JobsList({ route }, ref) {
     const navigation = useNavigation();
     const user = useAuthStore((s) => s.user);
-
-    const [mode, setMode] = useState('recommended');
+    const [mode, setMode] = useState('all');
     const [search, setSearch] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [filters, setFilters] = useState({ sortBy: 'createdAt' });
     const [coords, setCoords] = useState(null);
     const [locLoading, setLocLoading] = useState(false);
+    const type = user?.userId?.role ==="jobseeker" ? false:true
+  
+    const { data: categories } = useFetch(() => adminApi.categories(type), []);
+    const [category, setCategory] = useState('');
+    const [areaInput, setAreaInput] = useState('');
+    const [areaCoords, setAreaCoords] = useState(null);
+    const [radiusKm, setRadiusKm] = useState(null);
+    const [geocoding, setGeocoding] = useState(false);
+    const [suggestions, setSuggestions] = useState([]);
+    const [suggestLoading, setSuggestLoading] = useState(false);
+    const suggestDebounceRef = useRef(null);
 
     const [jobs, setJobs] = useState([]);
     const [page, setPage] = useState(1);
@@ -55,8 +235,86 @@ const JobsList = forwardRef(function JobsList(_, ref) {
     const [appliedIds, setAppliedIds] = useState(new Set());
     const [applyingId, setApplyingId] = useState(null);
 
-    // guards against stale/out-of-order responses (mode/filter/search switched mid-flight)
     const requestIdRef = useRef(0);
+
+    useEffect(() => {
+        const initialCategory = route?.params?.category;
+        if (initialCategory) {
+            setCategory(initialCategory);
+            setMode('all');
+        }
+    }, [route?.params?.category]);
+
+    useEffect(() => {
+        setFilters((f) => {
+            const next = { sortBy: f.sortBy || 'createdAt' };
+            if (category) next.category = category;
+            if (areaCoords && radiusKm) {
+                next.lat = areaCoords.lat;
+                next.lng = areaCoords.lng;
+                next.radius = Number(radiusKm) * 1000;
+            }
+            return next;
+        });
+    }, [category, areaCoords, radiusKm]);
+
+    useEffect(() => () => {
+        if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
+    }, []);
+
+    const fetchSuggestions = useCallback(async (query) => {
+        try {
+            setSuggestLoading(true);
+            const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${GOOGLE_PLACES_API_KEY}&components=country:in&types=geocode`;
+            const res = await fetch(url);
+            const json = await res.json();
+            if (json.status === 'OK') {
+                setSuggestions(json.predictions || []);
+            } else {
+                setSuggestions([]);
+            }
+        } catch (e) {
+            setSuggestions([]);
+        } finally {
+            setSuggestLoading(false);
+        }
+    }, []);
+
+    const onAreaInputChange = useCallback((text) => {
+        setAreaInput(text);
+        setAreaCoords(null);
+        if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
+
+        const q = text.trim();
+        if (!q) {
+            setSuggestions([]);
+            return;
+        }
+        suggestDebounceRef.current = setTimeout(() => fetchSuggestions(q), 350);
+    }, [fetchSuggestions]);
+
+    const onSelectSuggestion = useCallback(async (place) => {
+        setSuggestions([]);
+        setAreaInput(place.description);
+        try {
+            setGeocoding(true);
+            const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=geometry,name&key=${GOOGLE_PLACES_API_KEY}`;
+            const res = await fetch(url);
+            const json = await res.json();
+            const loc = json?.result?.geometry?.location;
+            if (loc) {
+                setAreaCoords({ lat: loc.lat, lng: loc.lng, label: place.description });
+                setMode('all');
+                setRadiusKm((prev) => prev || '10');
+            } else {
+                Alert.alert('Could not resolve location', 'Please try another place');
+            }
+        } catch (e) {
+            Alert.alert('Could not resolve location', 'Please try again');
+        } finally {
+            setGeocoding(false);
+        }
+    }, []);
 
     const ensureCoords = useCallback(async () => {
         if (coords) return coords;
@@ -88,6 +346,46 @@ const JobsList = forwardRef(function JobsList(_, ref) {
         }
     }, [coords, user]);
 
+    const onSubmitArea = useCallback(async () => {
+        const q = areaInput.trim();
+        if (!q) return;
+        setSuggestions([]);
+        try {
+            setGeocoding(true);
+            const results = await Location.geocodeAsync(q);
+            if (!results?.length) {
+                Alert.alert('Not found', `Could not find "${q}". Try a more specific area name.`);
+                return;
+            }
+            const { latitude, longitude } = results[0];
+            setAreaCoords({ lat: latitude, lng: longitude, label: q });
+            setMode('all');
+            setRadiusKm((prev) => prev || '10');
+        } catch (e) {
+            Alert.alert('Could not search area', 'Please try again');
+        } finally {
+            setGeocoding(false);
+        }
+    }, [areaInput]);
+
+    const onUseCurrentLocation = useCallback(async () => {
+        const c = await ensureCoords();
+        if (!c) return;
+        setSuggestions([]);
+        setAreaCoords({ lat: c.lat, lng: c.lng, label: 'Current location' });
+        setAreaInput('');
+        setMode('all');
+        setRadiusKm((prev) => prev || '10');
+    }, [ensureCoords]);
+
+    const onClearFilters = useCallback(() => {
+        setCategory('');
+        setAreaInput('');
+        setAreaCoords(null);
+        setRadiusKm(null);
+        setSuggestions([]);
+    }, []);
+
     const fetchPage = useCallback(async (pageNum, append) => {
         const requestId = ++requestIdRef.current;
 
@@ -99,7 +397,6 @@ const JobsList = forwardRef(function JobsList(_, ref) {
                 res = await jobsApi.recomended({ page: pageNum, limit: PAGE_LIMIT });
             } else if (mode === 'nearby') {
                 const c = await ensureCoords();
-                // bail if a newer request started while we were waiting on location/coords
                 if (requestId !== requestIdRef.current) return;
                 if (!c) { setJobs([]); setHasMore(false); return; }
                 res = await jobsApi.nearby({ lat: c.lat, lng: c.lng, page: pageNum, limit: PAGE_LIMIT });
@@ -112,7 +409,6 @@ const JobsList = forwardRef(function JobsList(_, ref) {
                 });
             }
 
-            // a newer fetchPage call superseded this one — drop this stale response
             if (requestId !== requestIdRef.current) return;
 
             const list = Array.isArray(res?.data)
@@ -200,7 +496,7 @@ const JobsList = forwardRef(function JobsList(_, ref) {
     const resultCount = jobs.length;
 
     return (
-        <Screen style={{paddingBottom:40}}>
+        <Screen style={{ paddingBottom: 40 }}>
             <Header title="Jobs" onBack={() => navigation.goBack()} />
 
             <FlatList
@@ -211,14 +507,7 @@ const JobsList = forwardRef(function JobsList(_, ref) {
                 onEndReached={loadMore}
                 onEndReachedThreshold={0.4}
                 ListHeaderComponent={
-                    <>
-                        {/* <Hero
-                            searchInput={searchInput}
-                            onChangeSearch={setSearchInput}
-                            onSubmit={runSearch}
-                            onClear={clearSearch}
-                        /> */}
-
+                    <View>
                         <View style={styles.modeRow}>
                             {MODES?.map((m) => {
                                 const active = mode === m.key;
@@ -240,10 +529,23 @@ const JobsList = forwardRef(function JobsList(_, ref) {
                         </View>
 
                         {mode === 'all' && (
-                            <FilterBar
-                                filters={filters}
-                                onChange={setFilters}
-                                onClear={() => setFilters({ sortBy: 'createdAt' })}
+                            <JobSearchFilters
+                                categories={categories}
+                                category={category}
+                                onCategoryChange={(v) => { setCategory(v); setMode('all'); }}
+                                areaInput={areaInput}
+                                onAreaInputChange={onAreaInputChange}
+                                onSubmitArea={onSubmitArea}
+                                onUseCurrentLocation={onUseCurrentLocation}
+                                geocoding={geocoding}
+                                locLoading={locLoading}
+                                suggestions={suggestions}
+                                suggestLoading={suggestLoading}
+                                onSelectSuggestion={onSelectSuggestion}
+                                areaCoords={areaCoords}
+                                radiusKm={radiusKm}
+                                onRadiusChange={setRadiusKm}
+                                onClear={onClearFilters}
                             />
                         )}
 
@@ -260,7 +562,7 @@ const JobsList = forwardRef(function JobsList(_, ref) {
                                 ) : null}
                             </View>
                         )}
-                    </>
+                    </View>
                 }
                 renderItem={({ item }) => (
                     <JobListCard
@@ -297,61 +599,8 @@ const JobsList = forwardRef(function JobsList(_, ref) {
 
 export default JobsList;
 
-function Hero({ searchInput, onChangeSearch, onSubmit, onClear }) {
-    return (
-        <View style={styles.hero}>
-            <View style={styles.heroGlowTop} />
-            <View style={styles.heroGlowBottom} />
-
-            <View style={styles.heroBadge}>
-                <Ionicons name="briefcase" size={13} color={COLORS.white} />
-                <Text style={styles.heroBadgeText}>Live openings</Text>
-            </View>
-
-            <Text style={styles.heroTitle}>Find your next role</Text>
-            <Text style={styles.heroSubtitle}>Handpicked jobs, updated every day</Text>
-
-    
-        </View>
-    );
-}
-
 const styles = StyleSheet.create({
     list: { padding: SPACING.lg, flexGrow: 1 },
-
-    hero: {
-        backgroundColor: COLORS.primary,
-        borderRadius: RADIUS.xl,
-        padding: SPACING.xl,
-        marginBottom: SPACING.lg,
-        overflow: 'hidden',
-        ...SHADOWS.md,
-    },
-    heroGlowTop: {
-        position: 'absolute', top: -40, right: -40,
-        width: 140, height: 140, borderRadius: 70,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-    },
-    heroGlowBottom: {
-        position: 'absolute', bottom: -50, left: -30,
-        width: 120, height: 120, borderRadius: 60,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-    },
-    heroBadge: {
-        flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-        backgroundColor: 'rgba(255,255,255,0.16)', paddingHorizontal: 10, paddingVertical: 5,
-        borderRadius: RADIUS.full, marginBottom: SPACING.md,
-    },
-    heroBadgeText: { color: COLORS.white, fontSize: FONTS.sizes.xs, fontWeight: '700' },
-    heroTitle: { fontSize: FONTS.sizes.xxl, fontWeight: '800', color: COLORS.white, lineHeight: FONTS.sizes.xxl * 1.15 },
-    heroSubtitle: { fontSize: FONTS.sizes.sm, color: COLORS.primaryMid, marginTop: 6, marginBottom: SPACING.lg },
-    searchBar: {
-        flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
-        backgroundColor: COLORS.white, borderRadius: RADIUS.lg,
-        paddingHorizontal: SPACING.md, paddingVertical: 12,
-        ...SHADOWS.sm,
-    },
-    searchInput: { flex: 1, fontSize: FONTS.sizes.sm, color: COLORS.text },
 
     modeRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
     modeChip: {
@@ -362,6 +611,99 @@ const styles = StyleSheet.create({
     modeChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
     modeChipText: { fontSize: FONTS.sizes.xs, fontWeight: '700', color: COLORS.textSecondary },
     modeChipTextActive: { color: COLORS.white },
+
+    filterCard: {
+        backgroundColor: COLORS.surface,
+        borderRadius: RADIUS.lg,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        padding: SPACING.md,
+        marginBottom: SPACING.md,
+        gap: SPACING.sm,
+    },
+    filterRow1: { flexDirection: 'row', gap: SPACING.sm, alignItems: 'center' },
+    categoryWrap: { flex: 1 },
+    kmWrap: { flex: 1 },
+
+    locPinBtn: {
+        width: 44, height: 44, borderRadius: RADIUS.md,
+        backgroundColor: COLORS.primaryLight,
+        alignItems: 'center', justifyContent: 'center',
+    },
+
+    // ---- Android picker: native dialog/dropdown, system overlay, no z-index needed ----
+    pickerBoxAndroid: {
+        height: 44,
+        borderRadius: RADIUS.md,
+        borderWidth: 1.5,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.surfaceAlt,
+        justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    pickerAndroidInner: {
+        color: COLORS.text,
+        marginVertical: -8, // trims extra native vertical padding Android adds
+    },
+
+    // ---- iOS trigger box (opens modal sheet) ----
+    pickerBoxIos: {
+        height: 44,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderRadius: RADIUS.md,
+        borderWidth: 1.5,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.surfaceAlt,
+        paddingHorizontal: SPACING.md,
+    },
+    pickerBoxText: {
+        flex: 1,
+        fontSize: FONTS.sizes.xs,
+        color: COLORS.text,
+        fontWeight: '600',
+    },
+
+    // ---- iOS modal sheet ----
+    iosBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+    },
+    iosSheet: {
+        backgroundColor: COLORS.surface,
+        borderTopLeftRadius: RADIUS.xl,
+        borderTopRightRadius: RADIUS.xl,
+        paddingBottom: SPACING.lg,
+        ...SHADOWS.md,
+    },
+    iosSheetHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: SPACING.lg,
+        paddingVertical: SPACING.md,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    iosCancel: { color: COLORS.textSecondary, fontWeight: '600', fontSize: FONTS.sizes.sm },
+    iosDone: { color: COLORS.primary, fontWeight: '700', fontSize: FONTS.sizes.sm },
+
+    areaHint: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary },
+    suggestionsBox: {
+        borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.lg,
+        backgroundColor: COLORS.surface, overflow: 'hidden',
+    },
+    suggestionRow: {
+        flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+        paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+        borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    },
+    suggestionText: { fontSize: FONTS.sizes.sm, color: COLORS.text, flex: 1 },
+    areaResolvedRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    areaResolvedText: { fontSize: FONTS.sizes.xs, color: COLORS.success, fontWeight: '600', flex: 1 },
+    filterClearBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: SPACING.xs },
+    filterClearText: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary, fontWeight: '600' },
 
     resultRow: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

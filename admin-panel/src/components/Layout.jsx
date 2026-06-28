@@ -5,6 +5,7 @@ import {
   Megaphone, LifeBuoy, Settings, CreditCard, LogOut, Images, HelpCircle,
   FileText, BarChart3, UserSearch, ImageUpscale, Menu, X, ChevronDown,
   Bell, ChevronRight,
+  UserCheckIcon,
 } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { API } from '../lib/api';
@@ -16,6 +17,7 @@ export const NAV = [
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/users', label: 'Users', icon: Users },
   { to: '/employers', label: 'Employers', icon: Building2 },
+  { to: '/roles', label: 'Roles Options', icon: UserCheckIcon },
 
   {
     label: 'Content',

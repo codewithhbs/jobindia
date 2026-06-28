@@ -254,6 +254,8 @@ export const Select = ({
     </View>
   );
 };
+
+
 const styles = StyleSheet.create({
   label: {
     fontSize: FONTS.sizes.sm,

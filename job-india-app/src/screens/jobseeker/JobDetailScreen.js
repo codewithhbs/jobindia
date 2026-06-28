@@ -42,9 +42,40 @@ function formatLocationDisplay(location) {
 
 function experienceLabel(exp) {
   if (!exp) return 'Any experience';
-  const { min, unit = 'years' } = exp;
-  if (!min) return 'Fresher welcome';
-  return `${min}+ ${unit} experience`;
+  const { min, max, unit = 'years' } = exp;
+  if (!min && !max) return 'Fresher welcome';
+  if (min && max) return `${min}–${max} ${unit} experience`;
+  if (min) return `${min}+ ${unit} experience`;
+  return `Up to ${max} ${unit} experience`;
+}
+
+function formatDateDisplay(d) {
+  if (!d) return null;
+  return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// ── Days left/expired for expiry countdown ──
+function daysUntil(d) {
+  if (!d) return null;
+  const target = new Date(d);
+  target.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((target - today) / 86400000);
+}
+
+function expiryMeta(d) {
+  const days = daysUntil(d);
+  if (days === null) return null;
+  if (days < 0) return { label: `Expired ${Math.abs(days)}d ago`, color: COLORS.danger || '#EF4444' };
+  if (days === 0) return { label: 'Expires today', color: COLORS.danger || '#EF4444' };
+  if (days <= 3) return { label: `${days}d left to apply`, color: COLORS.warning || '#F59E0B' };
+  return { label: `${days}d left to apply`, color: COLORS.success || '#22C55E' };
+}
+
+function educationLabel(v) {
+  if (!v || v === 'none' || v === 'any') return null;
+  return v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function JobDetailScreen({ route, navigation }) {
@@ -54,7 +85,7 @@ export default function JobDetailScreen({ route, navigation }) {
 
   const { data: job, loading } = useFetch(() => jobsApi.get(jobId), [jobId]);
   const { data: profile, refetch } = useFetch(() => jobseekerApi.me(), [navigation]);
-
+  console.log(job)
   // `profile` is the jobseeker doc itself (completeness, resume, etc live here).
   // `account` is the embedded auth user (role, name, isProfileComplete, kyc fields live here).
   const account = profile?.userId ?? authUser ?? null;
@@ -229,6 +260,7 @@ export default function JobDetailScreen({ route, navigation }) {
     ? (ep.companyLogo.startsWith('http') ? ep.companyLogo : `${BASE_API_URL || ''}${ep.companyLogo}`)
     : job.companyLogo;
   const companyPhone = ep.contactPerson?.phone || job.companyPhone;
+
   const hasCompany = !!(companyName || companyPhone);
   const callNumber = companyPhone || DEFAULT_SUPPORT_NUMBER;
 
@@ -237,9 +269,23 @@ export default function JobDetailScreen({ route, navigation }) {
       toast.error('Could not open dialer')
     );
   };
+  const handleWhatsapp = async () => {
+    const phone = callNumber.replace(/\D/g, ""); // Remove spaces, +, etc.
+    const url = `whatsapp://send?phone=91${phone}`;
 
+    const supported = await Linking.canOpenURL(url);
+
+    if (supported) {
+      Linking.openURL(url);
+    } else {
+      toast.error("WhatsApp is not installed");
+    }
+  };
   const typeLabel = JOB_TYPES.find((t) => t.value === job.jobType)?.label || job.jobType;
   const req = job.requirements || {};
+  const expiry = expiryMeta(job.expiryDate);
+  const educationText = educationLabel(req.education);
+  const qualificationText = req.qualification && req.qualification !== 'any' ? req.qualification.replace(/_/g, ' ') : null;
 
   // ✅ banner: driver -> KYC based, jobseeker -> % based
   const showCompletenessBanner = isDriver
@@ -251,6 +297,7 @@ export default function JobDetailScreen({ route, navigation }) {
   return (
     <Screen edges={['top']} noPadding>
       <Header title="Job Details" onBack={() => navigation.goBack()} />
+      {/* ✅ Free job notice */}
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {showCompletenessBanner && (
@@ -269,13 +316,28 @@ export default function JobDetailScreen({ route, navigation }) {
             <Ionicons name="chevron-forward" size={16} color={COLORS.accent} />
           </Pressable>
         )}
+        <View style={styles.freeNotice}>
+          <Ionicons name="shield-checkmark-outline" size={16} color={COLORS.success} />
+          <Text style={styles.freeNoticeText}>This job is free. Don't pay any money to anyone.</Text>
+        </View>
+        {/* ✅ Expiry / deadline banner */}
+        {expiry && (
+          <View style={[styles.expiryBanner, { backgroundColor: `${expiry.color}14`, borderColor: `${expiry.color}33` }]}>
+            <Ionicons name="time-outline" size={16} color={expiry.color} />
+            <Text style={[styles.expiryBannerText, { color: expiry.color }]}>{expiry.label}</Text>
+            {job.applicationDeadline ? (
+              <Text style={styles.expiryBannerSub}>Deadline: {formatDateDisplay(job.applicationDeadline)}</Text>
+            ) : null}
+          </View>
+        )}
 
         <View style={styles.card}>
           <View style={styles.top}>
-         
+
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>{job.title}</Text>
               <Text style={styles.company}>{companyName || 'Company'}</Text>
+              {job.subCategory ? <Text style={styles.subCategory}>{job.subCategory}</Text> : null}
             </View>
             {job.isFeatured ? <Badge label="Featured" color={COLORS.accent} /> : null}
           </View>
@@ -302,6 +364,12 @@ export default function JobDetailScreen({ route, navigation }) {
                 <Text style={styles.metaText}>{job.vacancies} openings</Text>
               </View>
             ) : null}
+            {job.shortlisted ? (
+              <View style={styles.metaItem}>
+                <Ionicons name="ribbon-outline" size={14} color={COLORS.textLight} />
+                <Text style={styles.metaText}>{job.shortlisted} shortlisted</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
@@ -319,9 +387,14 @@ export default function JobDetailScreen({ route, navigation }) {
                     <Text style={styles.companyPhone}>Contact via support</Text>
                   )}
                 </View>
+
                 <Pressable onPress={handleCall} style={styles.callBtn}>
                   <Ionicons name="call" size={18} color={COLORS.surface} />
                 </Pressable>
+                <Pressable onPress={handleWhatsapp} style={styles.callBtn}>
+                  <Ionicons name="logo-whatsapp" size={18} color={COLORS.surface} />
+                </Pressable>
+
               </View>
 
               {(ep.industry || ep.companySize || ep.foundedYear) ? (
@@ -392,8 +465,26 @@ export default function JobDetailScreen({ route, navigation }) {
           <Text style={styles.body}>{job.description}</Text>
         </Section>
 
-        {(req.skills?.length || req.languages?.length || req.licenseRequired || req.vehicleRequired || req.gender) ? (
+        {(req.skills?.length || req.languages?.length || req.licenseRequired || req.vehicleRequired || req.gender || educationText || qualificationText || req.ageMin || req.ageMax) ? (
           <Section title="Requirements">
+            {(educationText || qualificationText) ? (
+              <View style={styles.bullet}>
+                <Ionicons name="school-outline" size={16} color={COLORS.text} />
+                <Text style={styles.body}>
+                  {[qualificationText, educationText].filter(Boolean).join(' · ')}
+                </Text>
+              </View>
+            ) : null}
+
+            {(req.ageMin || req.ageMax) ? (
+              <View style={styles.bullet}>
+                <Ionicons name="calendar-outline" size={16} color={COLORS.text} />
+                <Text style={styles.body}>
+                  Age: {req.ageMin || '—'} – {req.ageMax || '—'} years
+                </Text>
+              </View>
+            ) : null}
+
             {req.skills?.length ? (
               <View style={{ gap: SPACING.xs }}>
                 <Text style={styles.subLabel}>Skills</Text>
@@ -430,23 +521,37 @@ export default function JobDetailScreen({ route, navigation }) {
               </View>
             ) : null}
 
-            {req.gender && req.gender !== 'any' ? (
+            {req.gender  ? (
               <View style={styles.bullet}>
                 <Ionicons name="person-outline" size={16} color={COLORS.text} />
-                <Text style={styles.body}>Preferred: {req.gender}</Text>
+                <Text style={styles.body}>Preferred Gender: {req.gender}</Text>
               </View>
             ) : null}
           </Section>
         ) : null}
 
-        {job.benefits?.length ? (
-          <Section title="Benefits">
-            {job.benefits.map((b) => (
-              <View key={b} style={styles.bullet}>
-                <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
-                <Text style={styles.body}>{b}</Text>
+        {(job.tags?.length || job.benefits?.length) ? (
+          <Section title="Tags & Benefits">
+            {job.tags?.length ? (
+              <View style={{ gap: SPACING.xs }}>
+                <Text style={styles.subLabel}>Tags</Text>
+                <View style={styles.tags}>
+                  {job.tags.map((t) => <Badge key={t} label={t} color={COLORS.accent} />)}
+                </View>
               </View>
-            ))}
+            ) : null}
+
+            {job.benefits?.length ? (
+              <View style={{ gap: SPACING.xs }}>
+                <Text style={styles.subLabel}>Benefits</Text>
+                {job.benefits.map((b) => (
+                  <View key={b} style={styles.bullet}>
+                    <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+                    <Text style={styles.body}>{b}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </Section>
         ) : null}
 
@@ -458,6 +563,28 @@ export default function JobDetailScreen({ route, navigation }) {
             </View>
           </Section>
         ) : null}
+
+        {/* ✅ Posting info — published / deadline / expiry dates together */}
+        <Section title="Posting Info">
+          {job.publishedAt ? (
+            <View style={styles.bullet}>
+              <Ionicons name="checkmark-done-outline" size={16} color={COLORS.text} />
+              <Text style={styles.body}>Published: {formatDateDisplay(job.publishedAt)}</Text>
+            </View>
+          ) : null}
+          {job.applicationDeadline ? (
+            <View style={styles.bullet}>
+              <Ionicons name="hourglass-outline" size={16} color={COLORS.text} />
+              <Text style={styles.body}>Apply by: {formatDateDisplay(job.applicationDeadline)}</Text>
+            </View>
+          ) : null}
+          {job.expiryDate ? (
+            <View style={styles.bullet}>
+              <Ionicons name="close-circle-outline" size={16} color={COLORS.text} />
+              <Text style={styles.body}>Listing closes: {formatDateDisplay(job.expiryDate)}</Text>
+            </View>
+          ) : null}
+        </Section>
       </ScrollView>
 
       {!isEmployer && (
@@ -509,6 +636,17 @@ const styles = StyleSheet.create({
   },
   completeBannerText: { flex: 1, fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.text },
 
+  expiryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    padding: SPACING.md,
+  },
+  expiryBannerText: { fontSize: FONTS.sizes.sm, fontWeight: '700' },
+  expiryBannerSub: { fontSize: FONTS.sizes.xs, color: COLORS.textLight, marginLeft: 'auto' },
+
   card: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
@@ -520,9 +658,10 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   title: { fontSize: FONTS.sizes.xl, fontWeight: '800', color: COLORS.text },
   company: { fontSize: FONTS.sizes.md, color: COLORS.textSecondary, marginTop: 2 },
+  subCategory: { fontSize: FONTS.sizes.xs, color: COLORS.textLight, marginTop: 2 },
   tags: { flexDirection: 'row', gap: SPACING.sm, flexWrap: 'wrap' },
 
-  metaRow: { flexDirection: 'row', gap: SPACING.lg, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: SPACING.sm },
+  metaRow: { flexDirection: 'row', gap: SPACING.lg, flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: SPACING.sm },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaText: { fontSize: FONTS.sizes.xs, color: COLORS.textLight },
 
@@ -553,7 +692,13 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: FONTS.sizes.sm, fontWeight: '700', color: COLORS.text },
   statLabel: { fontSize: FONTS.sizes.xs, color: COLORS.textLight },
-
+  freeNotice: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    backgroundColor: `${COLORS.success}14`,
+    borderRadius: RADIUS.md, borderWidth: 1, borderColor: `${COLORS.success}33`,
+    padding: SPACING.sm,
+  },
+  freeNoticeText: { fontSize: FONTS.sizes.xs, fontWeight: '700', color: COLORS.success, flex: 1 },
   section: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,

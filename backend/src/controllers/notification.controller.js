@@ -15,6 +15,30 @@ exports.broadcast = catchAsync(async (req, res) => {
   ok(res, notification, 'Broadcast queued');
 });
 
+// POST /api/v1/notifications/send-bulk (admin)
+// Send the same push to an explicit list of selected userIds, any role mix.
+exports.sendToSelected = catchAsync(async (req, res, next) => {
+  const { userIds, title, body, category, data, type } = req.body;
+
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    return next(new AppError('userIds must be a non-empty array', 400));
+  }
+  if (!title?.trim() || !body?.trim()) {
+    return next(new AppError('title and body are required', 400));
+  }
+
+  const result = await notificationService.sendToMany({
+    userIds,
+    title: title.trim(),
+    body: body.trim(),
+    type: type || 'push',
+    category: category || 'general',
+    data,
+  });
+
+  ok(res, result, `Notification queued for ${result.count} user(s)`);
+});
+
 // GET /api/v1/notifications — current user's feed
 exports.getMyNotifications = catchAsync(async (req, res) => {
   const { page = 1, limit = 20 } = req.query;

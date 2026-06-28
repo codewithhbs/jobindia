@@ -28,11 +28,18 @@ const FIELDS = [
   { key: 'pincode', label: 'Pincode', icon: 'barcode-outline', placeholder: 'Enter pincode', keyboard: 'numeric', caps: 'none' },
 ];
 
-export default function BasicDetails({ navigation }) {
+export default function BasicDetails({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const logout = useAuthStore((s) => s.logout);
   const { data: profile, refetch } = useFetch(() => userApi.getProfile(), []);
   const user = profile?.user || {};
+
+  // If this screen was reached via the forced "profile incomplete" redirect,
+  // it will have been given initialParams (redirect / complete). When those
+  // params are present there's nothing meaningful to go "back" to — so back
+  // should log the user out instead of popping into a broken state.
+  const redirectParams = route?.params;
+  const isForcedFlow = Boolean(redirectParams);
 
   const [saving, setSaving] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
@@ -153,6 +160,21 @@ export default function BasicDetails({ navigation }) {
     });
   }, []);
 
+  // Back button: forced flow (came from incomplete-profile redirect) has no
+  // sensible "back" target, so we log the user out and send them to login.
+  // Normal flow (opened from Settings/EditProfile etc.) behaves as before.
+  const handleBack = () => {
+    if (isForcedFlow) {
+      logout();
+      return;
+    }
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      logout();
+    }
+  };
+
   const handleSave = async () => {
     if (!form.name.trim()) {
       Toast.show({ type: 'error', text1: 'Name is required' });
@@ -186,7 +208,15 @@ export default function BasicDetails({ navigation }) {
       Toast.show({ type: 'success', text1: res?.data?.message || 'Profile updated' });
 
       await refetch();
-      navigation.goBack();
+
+      // Forced flow success: profile is now complete, so move the user
+      // onward to EditProfile (replacing this screen) instead of going
+      // back into a stack that never had a real previous screen.
+      if (isForcedFlow) {
+        navigation.replace('EditProfile', { redirectFrom: 'basicDetail' });
+      } else {
+        navigation.goBack();
+      }
     } catch (err) {
       Toast.show({ type: 'error', text1: err?.response?.data?.message || 'Failed to update profile' });
     } finally {
@@ -203,10 +233,7 @@ export default function BasicDetails({ navigation }) {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity
-          onPress={() => (navigation.canGoBack() ? navigation.goBack() : logout())}
-          style={styles.backBtn}
-        >
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#1A1D2E" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Complete Profile</Text>

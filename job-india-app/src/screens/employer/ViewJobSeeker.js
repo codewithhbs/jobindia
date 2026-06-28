@@ -53,7 +53,6 @@ export default function ViewJobSeeker({ navigation, route }) {
     const id = route?.params?.applicationId;
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
-    console.log(id)
     const load = useCallback(async () => {
         if (!id) return;
         setLoading(true);

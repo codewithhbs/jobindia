@@ -7,7 +7,7 @@ const jobSchema = new mongoose.Schema({
   employerName: String,
   companyName: String,
   companyLogo: String,
-
+  expiryDate: Date,
   category: { type: String, required: true, index: true },
   subCategory: String,
   jobType: {

@@ -10,5 +10,5 @@ router.put('/:id/read', authenticate, c.markRead);
 
 router.post('/send', authenticate, authorize(ADMIN_ROLES), c.send);
 router.post('/broadcast', authenticate, authorize(ADMIN_ROLES), c.broadcast);
-
+router.post('/send-bulk', authenticate, authorize(ADMIN_ROLES), c.sendToSelected);
 module.exports = router;

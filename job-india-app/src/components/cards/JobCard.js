@@ -18,7 +18,6 @@ function appStageIndex(status) {
 
 export function JobCard({ job, onPress, onSave, saved }) {
   const ep = job.employerProfile || {};
-  console.log(job)
   const companyName = ep.companyName || job.companyName;
   const companyLogo = ep.companyLogo
     ? (ep.companyLogo.startsWith('http') ? ep.companyLogo : `${BASE_API_URL}${ep.companyLogo}`)

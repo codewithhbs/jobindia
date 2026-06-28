@@ -45,7 +45,6 @@ const STATUS_CONFIG = {
 export default function KycScreen({ navigation }) {
   const { data, loading, refetch } = useFetch(() => kycApi.status(), []);
   const [refreshing, setRefreshing] = useState(false);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {

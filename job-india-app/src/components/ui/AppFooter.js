@@ -44,7 +44,7 @@ export default function AppFooter({refreshing}) {
   const cmsPages = (cmsData || []).filter((p) => p.isActive);
   const socials = buildSocialLinks(setting);
 
-  const appName = setting?.app_name || 'Job India';
+  const appName = setting?.app_name || 'Krishna Job';
   const brandColor = setting?.primary_color || COLORS.primary;
   const supportEmail = setting?.support_email;
   const supportPhone = setting?.support_phone;

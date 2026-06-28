@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Job India",
+    "name": "Krishna Job",
     "slug": "job-india",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -22,9 +22,7 @@
       },
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "package": "com.hbsdevelopersteam.jobindia",
       "googleServicesFile": "./google-services.json",
@@ -66,7 +64,8 @@
       "expo-image",
       "expo-secure-store",
       "expo-status-bar",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-sharing"
     ],
     "extra": {
       "apiUrl": "https://jobapi.adsdigitalmedia.com/api/v1"

@@ -6,12 +6,12 @@ import { Header } from '../../components/ui/Header';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants/theme';
 import { jobsApi } from '../../api/jobs.api';
 import { useFetch } from '../../hooks/useFetch';
-import { APPLICATION_STATUS } from '../../constants/config';
+import { APPLICATION_STATUS, BASE_API_URL } from '../../constants/config';
 import { toast } from '../../utils/toast';
 import { EmptyState, Loader, Screen } from '../../components/ui/Screen';
 import { Avatar, Badge } from '../../components/ui';
 
-const BASE_SERVER = 'https://jobapi.adsdigitalmedia.com';
+const BASE_SERVER =BASE_API_URL;
 const NEXT = { applied: 'shortlisted', shortlisted: 'interview_scheduled', interview_scheduled: 'hired' };
 
 function fileUrl(path) {
@@ -84,11 +84,25 @@ export function JobApplicantsScreen({ route, navigation }) {
     Linking.openURL(url);
   };
 
+  const downloadExcel = () => {
+    const url = `${BASE_SERVER}/api/v1/jobs/${jobId}/applications/export`;
+    Linking.openURL(url).catch(() => toast.error('Could not open download link'));
+  };
+
   const apps = data?.data || [];
 
   return (
     <Screen edges={['top']} noPadding>
-      <Header title="Applicants" subtitle={title} onBack={() => navigation.goBack()} />
+      <Header
+        title="Applicants"
+        subtitle={title}
+        onBack={() => navigation.goBack()}
+        right={
+          <Pressable onPress={downloadExcel} style={styles.downloadBtn} hitSlop={8}>
+            <Ionicons name="download-outline" size={20} color={COLORS.primary} />
+          </Pressable>
+        }
+      />
 
       {!loading && apps.length > 0 && (
         <View style={styles.countBar}>
@@ -105,7 +119,6 @@ export function JobApplicantsScreen({ route, navigation }) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         renderItem={({ item }) => {
           const applicant = item.applicantId || {};
-          console.log(applicant)
           const profile = item.profile || {};
           const s = APPLICATION_STATUS[item.status] || { label: item.status, color: COLORS.gray500 };
           const hasResume = !!profile.resume?.uploadedAt;
@@ -225,6 +238,12 @@ const styles = StyleSheet.create({
   list: { padding: SPACING.lg, flexGrow: 1 },
   countBar: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: 4 },
   countText: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textSecondary },
+
+  downloadBtn: {
+    width: 36, height: 36, borderRadius: RADIUS.md || 10,
+    backgroundColor: `${COLORS.primary}14`,
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   card: {
     backgroundColor: COLORS.surface,

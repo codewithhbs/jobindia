@@ -13,7 +13,8 @@ import { Alert } from '../../components/ui/AppAlert';
 import { Loader, Screen } from '../../components/ui/Screen';
 import { Badge, Card, Input, Select } from '../../components/ui';
 import { EDUCATION_LEVELS, JOB_TYPES } from '../../constants/config';
-
+import { useAuthStore } from '../../store/authStore';
+import * as Updates from 'expo-updates';
 const AVAILABILITY_OPTIONS = [
   { value: 'immediate', label: 'Immediate' },
   { value: '15_days', label: '15 days' },
@@ -21,10 +22,12 @@ const AVAILABILITY_OPTIONS = [
   { value: '60_days', label: '60 days' },
   { value: '90_days', label: '90+ days' },
 ];
-
-export default function EditProfileScreen({ navigation }) {
+export default function EditProfileScreen({ navigation, route }) {
+  const { redirectFrom } = route?.params || {};
+  const isFromBasicDetails = redirectFrom === 'basicDetail';
   const { data: profile, loading } = useFetch(() => jobseekerApi.me(), []);
   const { data: categories } = useFetch(() => adminApi.categories(), []);
+  const logout = useAuthStore((s) => s.logout);
 
   const [form, setForm] = useState({
     headline: '', about: '',
@@ -94,7 +97,12 @@ export default function EditProfileScreen({ navigation }) {
         links: { linkedin: form.linkedin, portfolio: form.portfolio, github: form.github },
       });
       toast.success('Saved', 'Profile updated');
-      navigation.goBack();
+      if (isFromBasicDetails) {
+        await Updates.reloadAsync();
+
+        return;
+      }
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] }); // apna actual root route name daal do
     } catch (e) {
       toast.error('Could not save', e.message);
     } finally {
@@ -122,12 +130,26 @@ export default function EditProfileScreen({ navigation }) {
       setUploading(false);
     }
   };
-
-  if (loading && !profile) return <Screen><Header title="Edit Profile" onBack={() => navigation.goBack()} /><Loader /></Screen>;
+  const handleBack = () => {
+    if (isFromBasicDetails) {
+      Alert.show({
+        variant: 'danger',
+        title: 'Go back?',
+        message: 'You will be logged out and sent back to login.',
+        buttons: [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Logout', style: 'danger', onPress: () => logout() },
+        ],
+      });
+    } else {
+      navigation.goBack();
+    }
+  };
+  if (loading && !profile) return <Screen><Header title="Edit Profile" onBack={handleBack} /><Loader /></Screen>;
 
   return (
     <Screen>
-      <Header title="Edit Profile" onBack={() => navigation.goBack()} />
+      <Header title="Edit Profile" onBack={handleBack} />
       <ScrollView
         contentContainerStyle={[
           styles.scroll,

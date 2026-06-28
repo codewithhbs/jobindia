@@ -62,10 +62,36 @@ function timeAgo(dateStr) {
   return `${months}mo ago`;
 }
 
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// ── Days left/expired count, calendar-day based (not just ms diff) ──
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((target - today) / 86400000);
+}
+
+function expiryMeta(dateStr) {
+  const days = daysUntil(dateStr);
+  if (days === null) return null;
+  if (days < 0) return { label: `Expired ${Math.abs(days)}d ago`, color: '#EF4444', icon: 'alert-circle' };
+  if (days === 0) return { label: 'Expires today', color: '#EF4444', icon: 'alert-circle' };
+  if (days === 1) return { label: '1 day left', color: '#F59E0B', icon: 'time-outline' };
+  if (days <= 3) return { label: `${days} days left`, color: '#F59E0B', icon: 'time-outline' };
+  return { label: `${days} days left`, color: '#22C55E', icon: 'time-outline' };
+}
+
 export function EmployerJobCard({ job, onPress, onViewApplicants, onEdit, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const status = STATUS_META[job.status] || STATUS_META.active;
   const applicantCount = job.applications ?? job.applicantsCount ?? 0;
+  const expiry = expiryMeta(job.expiryDate);
 
   const openMenu = () => setMenuOpen(true);
   const closeMenu = () => setMenuOpen(false);
@@ -121,6 +147,15 @@ export function EmployerJobCard({ job, onPress, onViewApplicants, onEdit, onDele
             <Text style={styles.infoText} numberOfLines={1}>{typeLabel(job.jobType)}</Text>
           </View>
         </View>
+
+        {/* ── Expiry row ── */}
+        {expiry && (
+          <View style={[styles.expiryRow, { backgroundColor: `${expiry.color}12` }]}>
+            <Ionicons name={expiry.icon} size={13} color={expiry.color} />
+            <Text style={[styles.expiryText, { color: expiry.color }]}>{expiry.label}</Text>
+            <Text style={styles.expiryDate}>· Expires {formatDate(job.expiryDate)}</Text>
+          </View>
+        )}
 
         <View style={styles.divider} />
 
@@ -226,6 +261,19 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', gap: SPACING.md, marginTop: 2 },
   infoItem: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
   infoText: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary, fontWeight: '500' },
+
+  expiryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  expiryText: { fontSize: 11.5, fontWeight: '700' },
+  expiryDate: { fontSize: 11, color: COLORS.textSecondary, fontWeight: '500' },
 
   divider: { height: 1, backgroundColor: '#F1F5F9', marginTop: SPACING.xs },
 

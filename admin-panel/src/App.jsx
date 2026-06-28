@@ -25,6 +25,7 @@ import CreateAndUpdateSliders from './pages/CreateAndUpdateSliders';
 import UserDetailDriver from './pages/UserDetailDriver';
 import UserDetailJobseeker from './pages/UserDetailJobseeker';
 import JobDetail from './pages/JobDetail';
+import AllRoles from './pages/AllRoles';
 
 export default function App() {
   return (
@@ -61,6 +62,7 @@ export default function App() {
           <Route path="home-sliders/edit/:id" element={<CreateAndUpdateSliders />} />
 
 
+          <Route path="roles" element={<AllRoles />} />
 
           {/* Superadmin-only */}
           <Route element={<ProtectedRoute roles={['superadmin']} />}>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Switch, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Switch, Pressable, BackHandler, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Header } from '../../components/ui/Header';
 import { Button } from '../../components/ui/Button';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants/theme';
@@ -20,8 +21,10 @@ const DOCS = [
   { id: 'drivingLicense_back', label: 'Licence Back' },
 ];
 
-export default function DriverProfileScreen({ navigation }) {
+export default function DriverProfileScreen({ navigation, route }) {
   const logout = useAuthStore((s) => s.logout);
+  const nav = useNavigation();
+  const forced = route?.params?.forced;
   const { data: profile, loading } = useFetch(() => driverApi.me(), []);
   const [form, setForm] = useState({ vehicleNumber: '', vehicleModel: '', licenseNumber: '', yearsOfExperience: '' });
   const [vehicleTypes, setVehicleTypes] = useState([]);
@@ -40,6 +43,33 @@ export default function DriverProfileScreen({ navigation }) {
       setAvailable(profile.isAvailable ?? true);
     }
   }, [profile]);
+
+  // forced screen pe back disable + gesture off
+  useEffect(() => {
+    if (forced) {
+      nav.setOptions({ gestureEnabled: false });
+    }
+  }, [forced, nav]);
+
+  const showForcedBackAlert = () => {
+    Alert.alert(
+      'KYC incomplete',
+      'Aapne KYC submit nahi kiya hai. Wapas jaane ke liye logout karna hoga.',
+      [
+        { text: 'Stay', style: 'cancel' },
+        { text: 'Logout', style: 'destructive', onPress: () => logout() },
+      ]
+    );
+    return true; // consume back event, default back kabhi nahi hone dena
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!forced) return;
+      const sub = BackHandler.addEventListener('hardwareBackPress', showForcedBackAlert);
+      return () => sub.remove();
+    }, [forced])
+  );
 
   const toggleVehicle = (v) => setVehicleTypes((arr) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]));
 
@@ -68,6 +98,11 @@ export default function DriverProfileScreen({ navigation }) {
       });
       await driverApi.update(fd);
       toast.success('Saved', 'Profile submitted for verification');
+      // forced unlock: parent ka kycStatus refetch trigger karo agar context/event se available ho
+      if (forced) {
+        nav.setOptions({ gestureEnabled: true });
+        nav.setParams({ forced: false });
+      }
     } catch (e) {
       toast.error('Could not save', e.message);
     } finally {
@@ -79,7 +114,10 @@ export default function DriverProfileScreen({ navigation }) {
 
   return (
     <Screen>
-      <Header title="Driver Profile" />
+      <Header
+        title="Driver Profile"
+        onBack={forced ? showForcedBackAlert : undefined}
+      />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Card>
           <View style={styles.switchRow}>

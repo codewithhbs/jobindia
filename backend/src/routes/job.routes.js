@@ -14,6 +14,7 @@ router.get('/for-home',optionalAuth, jobController.getRecommendedJobs);
 
 router.get('/nearby', jobController.getNearbyJobs);
 router.get('/:id',optionalAuth, jobController.getJob);
+router.get('/:id/applications/export',optionalAuth, jobController.exportJobApplications);
 
 // Job Seeker
 router.get('/me/applications', authenticate, jobController.getMyApplications);

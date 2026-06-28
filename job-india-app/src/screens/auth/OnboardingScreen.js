@@ -19,6 +19,7 @@ const FALLBACK_SLIDES = [
 export function OnboardingScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { data, loading } = useFetch(() => adminApi.onboarding(), []);
+  const { data: settings } = useFetch(() => adminApi.publicSettings(), []);
   const [index, setIndex] = useState(0);
   const ref = useRef(null);
 
@@ -56,6 +57,18 @@ export function OnboardingScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      {settings?.app_logo ? (
+        <Image
+          source={{ uri: settings.app_logo }}
+          style={[styles.onboardingLogo, { top: insets.top + SPACING.md }]}
+          resizeMode="contain"
+        />
+      ) : (
+        <Text style={[styles.onboardingLogoText, { top: insets.top + SPACING.md }]}>
+          {settings?.app_name || 'Krishna Job'}
+        </Text>
+      )}
+
       <Pressable
         style={[styles.skip, { top: insets.top + SPACING.md }]}
         onPress={() => navigation.replace('Login')}
@@ -105,12 +118,22 @@ export function OnboardingScreen({ navigation }) {
 }
 
 export function SplashScreen() {
+  const { data: settings } = useFetch(() => adminApi.publicSettings(), []);
+
   return (
     <LinearGradient colors={[COLORS.heroTop, COLORS.heroBot]} style={styles.splash}>
-     <View>
-       <Text style={styles.splashLogo}>Job India</Text>
-      <Text style={styles.splashTag}>Naukri ab aasaan</Text>
-     </View>
+      <View style={{ alignItems: 'center' }}>
+        {settings?.app_logo ? (
+          <Image
+            source={{ uri: settings.app_logo }}
+            style={styles.splashLogoImage}
+            resizeMode="contain"
+          />
+        ) : (
+          <Text style={styles.splashLogo}>{settings?.app_name || 'Krishna Job'}</Text>
+        )}
+        <Text style={styles.splashTag}>Naukri ab aasaan</Text>
+      </View>
     </LinearGradient>
   );
 }
@@ -120,6 +143,8 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   skip: { position: 'absolute', right: SPACING.xl, zIndex: 10 },
   skipText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.md, fontWeight: '600' },
+  onboardingLogo: { position: 'absolute', left: SPACING.xl, width: 100, height: 36, zIndex: 10 },
+  onboardingLogoText: { position: 'absolute', left: SPACING.xl, fontSize: FONTS.sizes.lg, fontWeight: '800', color: COLORS.primary, zIndex: 10 },
   slide: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.xxxl, gap: SPACING.lg },
   iconCircle: { width: 160, height: 160, borderRadius: 80, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.xl },
   imageCard: {
@@ -141,5 +166,6 @@ const styles = StyleSheet.create({
   dotActive: { width: 24, backgroundColor: COLORS.primary },
   splash: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: SPACING.sm },
   splashLogo: { fontSize: 40, fontWeight: '900', color: COLORS.white },
+  splashLogoImage: { width: 180, height: 80, marginBottom: SPACING.sm },
   splashTag: { fontSize: FONTS.sizes.md, color: 'rgba(255,255,255,0.85)' },
 });
