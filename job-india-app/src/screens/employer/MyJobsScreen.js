@@ -57,7 +57,7 @@ export function MyJobsScreen({ navigation }) {
   };
 
   return (
-    <Screen edges={['top']} noPadding>
+    <Screen style={{paddingBottom:15}} edges={['top']} noPadding>
       <Header
         title="My Job Postings"
         onBack={() => navigation.goBack()}

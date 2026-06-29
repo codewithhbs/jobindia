@@ -22,9 +22,9 @@ const BASE_SERVER = 'https://jobapi.adsdigitalmedia.com';
 
 const FIELDS = [
   { key: 'name', label: 'Full Name', icon: 'person-outline', placeholder: 'Enter your name', keyboard: 'default', caps: 'words' },
-  { key: 'email', label: 'Email', icon: 'mail-outline', placeholder: 'Enter your email', keyboard: 'email-address', caps: 'none' },
+  // { key: 'email', label: 'Email', icon: 'mail-outline', placeholder: 'Enter your email', keyboard: 'email-address', caps: 'none' },
   { key: 'city', label: 'City', icon: 'location-outline', placeholder: 'Enter city', keyboard: 'default', caps: 'words' },
-  { key: 'state', label: 'State', icon: 'map-outline', placeholder: 'Enter state', keyboard: 'default', caps: 'words' },
+  { key: 'state', label: 'Location', icon: 'map-outline', placeholder: 'Enter state', keyboard: 'default', caps: 'words' },
   { key: 'pincode', label: 'Pincode', icon: 'barcode-outline', placeholder: 'Enter pincode', keyboard: 'numeric', caps: 'none' },
 ];
 
@@ -34,10 +34,7 @@ export default function BasicDetails({ navigation, route }) {
   const { data: profile, refetch } = useFetch(() => userApi.getProfile(), []);
   const user = profile?.user || {};
 
-  // If this screen was reached via the forced "profile incomplete" redirect,
-  // it will have been given initialParams (redirect / complete). When those
-  // params are present there's nothing meaningful to go "back" to — so back
-  // should log the user out instead of popping into a broken state.
+
   const redirectParams = route?.params;
   const isForcedFlow = Boolean(redirectParams);
 

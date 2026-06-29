@@ -13,12 +13,14 @@ import { toast } from '../../utils/toast';
 import { Loader, Screen } from '../../components/ui/Screen';
 import { Badge, Card, Chip, Input } from '../../components/ui';
 
-const VEHICLES = ['bike', 'auto', 'car', 'van', 'truck'];
+const VEHICLES = ['bike', 'auto', 'car', 'bus'];
 const DOCS = [
   { id: 'aadhar_front', label: 'Aadhaar Front' },
   { id: 'aadhar_back', label: 'Aadhaar Back' },
   { id: 'drivingLicense_front', label: 'Licence Front' },
   { id: 'drivingLicense_back', label: 'Licence Back' },
+  { id: 'pan_card', label: 'Pan card' },
+
 ];
 
 export default function DriverProfileScreen({ navigation, route }) {
@@ -128,16 +130,19 @@ export default function DriverProfileScreen({ navigation, route }) {
 
         <Card style={{ gap: SPACING.md }}>
           <Text style={styles.sectionTitle}>Vehicle Types</Text>
-          <View style={styles.chips}>
+          {/* <View style={styles.chips}>
             {VEHICLES.map((v) => <Chip key={v} label={v} active={vehicleTypes.includes(v)} onPress={() => toggleVehicle(v)} />)}
-          </View>
-          <Input label="Vehicle Number" placeholder="DL01AB1234" value={form.vehicleNumber} onChangeText={set('vehicleNumber')} autoCapitalize="characters" />
-          <Input label="Vehicle Model" placeholder="Honda Activa" value={form.vehicleModel} onChangeText={set('vehicleModel')} />
+          </View> */}
+          <Input label="Aadhar Number" placeholder="1234 456789 1234" value={form.vehicleNumber} onChangeText={set('vehicleNumber')} autoCapitalize="characters" />
+          <Input label="Pan Number" placeholder="AWERT1365E" value={form.vehicleModel} onChangeText={set('vehicleModel')} />
           <Input label="Licence Number" value={form.licenseNumber} onChangeText={set('licenseNumber')} autoCapitalize="characters" />
+          <Input label="Current Salery" keyboardType="number-pad" value={form.yearsOfExperience} onChangeText={set('yearsOfExperience')} />
+          <Input label="Expected Salary" keyboardType="number-pad" value={form.yearsOfExperience} onChangeText={set('yearsOfExperience')} />
+
           <Input label="Experience (years)" keyboardType="number-pad" value={form.yearsOfExperience} onChangeText={set('yearsOfExperience')} />
         </Card>
 
-        <Card style={{ gap: SPACING.md }}>
+        <Card style={{ gap: SPACING.md }}>                                            
           <Text style={styles.sectionTitle}>Documents (KYC)</Text>
           {DOCS.map((d) => {
             const existing = profile?.documents?.find((x) => x.fieldId === d.id);

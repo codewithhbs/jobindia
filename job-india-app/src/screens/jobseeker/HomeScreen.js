@@ -176,7 +176,7 @@ export default function HomeScreen() {
         <AppFooter refreshing={refreshing} />
 
       </ScrollView>
-      {user?.userId?.role === 'driver' && settings?.whatsapp_link && (
+      {settings?.whatsapp_link && (
         <Pressable
           onPress={() => Linking.openURL(settings.whatsapp_link).catch(() => { })}
           style={styles.waFloatBtn}
@@ -241,13 +241,15 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.surface,
+
+    // backgroundColor: COLORS.surface,
+    backgroundColor: "#3e7beb",
     borderWidth: 1.5,
     borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.xs,
-    ...SHADOWS.xs,
+    // ...SHADOWS.xs,
   },
   catIconBoxActive: {
     backgroundColor: COLORS.primaryLight,

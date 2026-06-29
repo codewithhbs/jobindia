@@ -37,6 +37,8 @@ export const APPLICATION_STATUS = {
 };
 
 export const EDUCATION_LEVELS = [
+  { label: 'Below 10th', value: '10th' },
+
   { label: '10th', value: '10th' },
   { label: '12th', value: '12th' },
   { label: 'Diploma', value: 'diploma' },

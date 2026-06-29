@@ -169,19 +169,19 @@ export default function EditProfileScreen({ navigation, route }) {
           </View>
         )}
 
-        {/* ---- Basic info ---- */}
+        {/* ---- Basic info ----
         <Card style={{ gap: SPACING.md }}>
           <Text style={styles.sectionTitle}>Basic Info</Text>
           <Input label="Headline" placeholder="e.g. Full Stack Developer | 3 yrs" value={form.headline} onChangeText={set('headline')} />
           <Input label="About" placeholder="A short summary about you" value={form.about} onChangeText={set('about')} multiline numberOfLines={4} style={{ minHeight: 80, textAlignVertical: 'top' }} />
-        </Card>
+        </Card> */}
 
         {/* ---- Skills, languages, certifications ---- */}
         <Card style={{ gap: SPACING.md }}>
           <Text style={styles.sectionTitle}>Skills & Languages</Text>
           <TagsField label="Skills" placeholder="e.g. React" values={form.skills} onChange={set('skills')} />
-          <TagsField label="Languages" placeholder="e.g. Hindi" values={form.languages} onChange={set('languages')} />
-          <TagsField label="Certifications" placeholder="e.g. AWS Certified" values={form.certifications} onChange={set('certifications')} />
+          {/* <TagsField label="Languages" placeholder="e.g. Hindi" values={form.languages} onChange={set('languages')} /> */}
+          {/* <TagsField label="Certifications" placeholder="e.g. AWS Certified" values={form.certifications} onChange={set('certifications')} /> */}
         </Card>
 
         {/* ---- Experience & salary ---- */}
@@ -197,7 +197,7 @@ export default function EditProfileScreen({ navigation, route }) {
             <Input label="Expected min ₹/mo" placeholder="25000" keyboardType="number-pad" value={form.expMin} onChangeText={set('expMin')} containerStyle={{ flex: 1 }} />
             <Input label="Expected max ₹/mo" placeholder="40000" keyboardType="number-pad" value={form.expMax} onChangeText={set('expMax')} containerStyle={{ flex: 1 }} />
           </View>
-          <Input label="Notice period (days)" placeholder="30" keyboardType="number-pad" value={form.noticePeriodDays} onChangeText={set('noticePeriodDays')} />
+          {/* <Input label="Notice period (days)" placeholder="30" keyboardType="number-pad" value={form.noticePeriodDays} onChangeText={set('noticePeriodDays')} /> */}
           <Text style={styles.fieldLabel}>Availability</Text>
           <View style={styles.chipsRow}>
             {AVAILABILITY_OPTIONS.map((o) => (
@@ -239,7 +239,7 @@ export default function EditProfileScreen({ navigation, route }) {
         </Card>
 
         {/* ---- Availability toggles ---- */}
-        <Card style={{ gap: SPACING.lg }}>
+        {/* <Card style={{ gap: SPACING.lg }}>
           <Text style={styles.sectionTitle}>Availability</Text>
           <ToggleRow
             icon="briefcase-outline"
@@ -255,15 +255,15 @@ export default function EditProfileScreen({ navigation, route }) {
             value={form.willingToRelocate}
             onChange={set('willingToRelocate')}
           />
-        </Card>
+        </Card> */}
 
         {/* ---- Links ---- */}
-        <Card style={{ gap: SPACING.md }}>
+        {/* <Card style={{ gap: SPACING.md }}>
           <Text style={styles.sectionTitle}>Links</Text>
           <Input label="LinkedIn" placeholder="https://linkedin.com/in/..." value={form.linkedin} onChangeText={set('linkedin')} autoCapitalize="none" />
           <Input label="Portfolio / Website" placeholder="https://..." value={form.portfolio} onChangeText={set('portfolio')} autoCapitalize="none" />
           <Input label="GitHub" placeholder="https://github.com/..." value={form.github} onChangeText={set('github')} autoCapitalize="none" />
-        </Card>
+        </Card> */}
 
         {/* ---- Work experience (own endpoints) ---- */}
         <Card style={{ gap: SPACING.md }}>

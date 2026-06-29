@@ -118,7 +118,7 @@ function JobSearchFilters({
     onClear,
 }) {
     const categoryOptions = [
-        { value: '', label: 'categories' },
+        { value: '', label: 'Job Profile' },
         ...(categories || []).map((c) => ({ value: c.name, label: c.name })),
     ];
 

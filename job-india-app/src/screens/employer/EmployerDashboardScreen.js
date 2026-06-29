@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants/theme';
 import { employerApi } from '../../api/employer.api';
@@ -24,6 +25,24 @@ export default function EmployerDashboardScreen({ navigation }) {
   const { data: banners, refetch: bannerRefetch } = useFetch(() => adminApi.sliders(), []);
   const { data, loading, refetch } = useFetch(() => employerApi.dashboard(), []);
 
+  const [unreadCount, setUnreadCount] = useState(0);
+  console.log(unreadCount)
+  const fetchUnread = useCallback(async () => {
+    try {
+      const res = await notificationsApi.list({ limit: 1 });
+      setUnreadCount(res?.unreadCount ?? 0);
+    } catch (e) {
+      // silent — bell just won't show a count this time
+    }
+  }, []);
+
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnread();
+    }, [fetchUnread, refreshing])
+
+  )
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -70,6 +89,11 @@ export default function EmployerDashboardScreen({ navigation }) {
             </View>
             <Pressable style={styles.bellBtn} onPress={() => navigation.navigate('Notifications')}>
               <Ionicons name="notifications-outline" size={19} color="#fff" />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount}</Text>
+                </View>
+              )}
             </Pressable>
           </View>
 
