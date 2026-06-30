@@ -30,19 +30,18 @@ const driverProfileSchema = new mongoose.Schema(
       index: true,
     },
 
-    vehicleTypes: [
-      { type: String, enum: ['bike', 'auto', 'car', 'van', 'truck', 'heavy'] },
-    ],
-    vehicleNumber: String,
-    vehicleModel: String,
-
+    aadharNumber: String,
+    panNumber: String,
+    currentSalary: String,
+    expectedSalary: String,
+isBikeAvailable: { type: Boolean, default: false },    vehicleCategories: [String],
+    dutyType: String,
+    preferredCategories: [String],
     licenseNumber: String,
     licenseExpiry: Date,
 
     yearsOfExperience: { type: Number, default: 0 },
-    preferredRoutes: [String],
 
-    isAvailable: { type: Boolean, default: true },
 
     documents: [documentSchema],
   },

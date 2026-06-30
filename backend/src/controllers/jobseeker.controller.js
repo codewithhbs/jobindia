@@ -16,38 +16,86 @@ exports.getMyProfile = catchAsync(async (req, res) => {
 });
 
 // PUT /api/v1/jobseekers/me — update structured profile fields
+// PUT /api/v1/jobseekers/me
 exports.upsertProfile = catchAsync(async (req, res) => {
   const profile = await getOrInit(req.user.userId);
 
   const allowed = [
-    'headline', 'about', 'skills', 'languages', 'certifications',
-    'totalExperienceMonths', 'currentSalary', 'preferredCategories',
-    'preferredJobTypes', 'preferredLocations', 'expectedSalary',
-    'noticePeriodDays', 'availability', 'isOpenToWork', 'willingToRelocate', 'links',
+    "isFresher",
+    "skills",
+    "experience",
+    "totalExperienceMonths",
+    "currentSalary",
+    "preferredCategories",
+    "preferredJobTypes",
+    "preferredLocations",
+    "expectedSalary",
+    "noticePeriodDays",
   ];
-  console.log(req.body)
 
-  for (const key of allowed) {
-    if (req.body[key] !== undefined) {
-      profile[key] = typeof req.body[key] === 'string' && ['skills', 'languages', 'certifications', 'preferredCategories', 'preferredJobTypes', 'preferredLocations', 'expectedSalary', 'links'].includes(key)
-        ? JSON.parse(req.body[key])
-        : req.body[key];
+  const jsonFields = [
+    "skills",
+    "experience",
+    "preferredCategories",
+    "preferredJobTypes",
+    "preferredLocations",
+    "expectedSalary",
+  ];
+
+  // Parse preferredLocations
+  if (req.body.preferredLocations !== undefined) {
+    let locations = req.body.preferredLocations;
+
+    if (typeof locations === "string") {
+      locations = JSON.parse(locations);
     }
+
+    profile.preferredLocations = locations.map((location) => ({
+      name: location.name,
+      lat: location.lat,
+      lng: location.lng,
+      city: location.city || location.name,
+      state: location.state || "",
+      country: location.country || "",
+    }));
+  }
+
+  // Update remaining fields
+  for (const key of allowed) {
+    if (key === "preferredLocations") continue;
+
+    if (req.body[key] === undefined) continue;
+
+    if (
+      typeof req.body[key] === "string" &&
+      jsonFields.includes(key)
+    ) {
+      try {
+        profile[key] = JSON.parse(req.body[key]);
+      } catch {
+        profile[key] = req.body[key];
+      }
+    } else {
+      profile[key] = req.body[key];
+    }
+  }
+
+  if (profile.isFresher) {
+    profile.totalExperienceMonths = 0;
   }
 
   profile.computeCompleteness();
   await profile.save();
 
-  // Sync overall account completeness flag
   const user = await User.findById(req.user.userId);
-  if (user && profile.profileCompleteness >= 60 && !user.isProfileComplete) {
-    user.isProfileComplete = true;
+
+  if (user) {
+    user.isProfileComplete = profile.profileCompleteness >= 60;
     await user.save();
   }
 
-  ok(res, profile, 'Profile updated');
+  ok(res, profile, "Profile updated successfully");
 });
-
 // PUT /api/v1/jobseekers/me/resume — upload CV (pdf/doc/image)
 exports.uploadResume = catchAsync(async (req, res, next) => {
   console.log(req)
@@ -222,20 +270,20 @@ exports.searchCandidates = catchAsync(async (req, res) => {
 
 
 
- 
+
 const ALLOWED_PROFILE_FIELDS = [
   'headline', 'about', 'skills', 'languages', 'certifications',
   'totalExperienceMonths', 'currentSalary', 'preferredCategories',
   'preferredJobTypes', 'preferredLocations', 'expectedSalary',
   'noticePeriodDays', 'availability', 'isOpenToWork', 'willingToRelocate', 'links',
 ];
- 
+
 // Yeh fields kabhi-kabhi stringified JSON aate hain (form-data se), to parse karna padta hai
 const JSON_STRING_FIELDS = [
   'skills', 'languages', 'certifications', 'preferredCategories',
   'preferredJobTypes', 'preferredLocations', 'expectedSalary', 'links',
 ];
- 
+
 function safeParseIfJsonString(key, value) {
   if (typeof value === 'string' && JSON_STRING_FIELDS.includes(key)) {
     try {
@@ -246,7 +294,7 @@ function safeParseIfJsonString(key, value) {
   }
   return value;
 }
- 
+
 function applyProfileFields(profile, body) {
   for (const key of ALLOWED_PROFILE_FIELDS) {
     if (body[key] !== undefined) {
@@ -254,7 +302,7 @@ function applyProfileFields(profile, body) {
     }
   }
 }
- 
+
 function buildExperienceObject(body, existing = {}) {
   return {
     ...existing,
@@ -269,7 +317,7 @@ function buildExperienceObject(body, existing = {}) {
     description: body.description ?? existing.description ?? '',
   };
 }
- 
+
 // ────────────────────────────────────────────────────────────
 // PUT /api/v1/jobseekers/me/full-update
 //
@@ -297,59 +345,59 @@ function buildExperienceObject(body, existing = {}) {
 exports.fullUpdate = catchAsync(async (req, res, next) => {
   const profile = await getOrInit(req.params.userId);
   const body = req.body || {};
- 
+
   // ── 1. Plain profile fields (headline, about, skills, etc.) ──
   if (body.profile && typeof body.profile === 'object') {
     applyProfileFields(profile, body.profile);
   }
   // Bhi top-level se allowed fields support karo (backward compatible with old payloads)
   applyProfileFields(profile, body);
- 
+
   // ── 2. Open to work shortcut ──
   if (body.isOpenToWork !== undefined) {
     profile.isOpenToWork = body.isOpenToWork;
   }
- 
+
   // ── 3. Education: add / update / remove ──
   if (body.education) {
     const { add = [], update = [], remove = [] } = body.education;
- 
+
     for (const entry of add) {
       profile.education.push(entry);
     }
- 
+
     for (const entry of update) {
       const { itemId, ...fields } = entry;
       const item = profile.education.id(itemId);
       if (!item) return next(new AppError(`Education entry not found: ${itemId}`, 404));
       item.set(fields);
     }
- 
+
     for (const itemId of remove) {
       profile.education.pull({ _id: itemId });
     }
   }
- 
+
   // ── 4. Experience: add / update / remove ──
   if (body.experience) {
     const { add = [], update = [], remove = [] } = body.experience;
- 
+
     for (const entry of add) {
       profile.experience.push(buildExperienceObject(entry));
     }
- 
+
     for (const entry of update) {
       const { itemId, ...fields } = entry;
       const item = profile.experience.id(itemId);
       if (!item) return next(new AppError(`Experience entry not found: ${itemId}`, 404));
       item.set(buildExperienceObject(fields, item.toObject()));
     }
- 
+
     for (const itemId of remove) {
       profile.experience.pull({ _id: itemId });
     }
   }
- 
+
   // ── 5. Resume (agar same request multipart ke through file ke sath aaye) ──
   const resumeInfo = req.uploadedFiles?.resume_info;
   if (resumeInfo) {
@@ -360,18 +408,17 @@ exports.fullUpdate = catchAsync(async (req, res, next) => {
       uploadedAt: new Date(),
     };
   }
- 
+
   // ── Recompute completeness + save ──
   profile.computeCompleteness();
   await profile.save();
- 
+
   // ── Sync overall account completeness flag ──
   const user = await User.findById(req.user.userId);
   if (user && profile.profileCompleteness >= 60 && !user.isProfileComplete) {
     user.isProfileComplete = true;
     await user.save();
   }
- 
+
   ok(res, profile, 'Profile fully updated');
 });
- 

@@ -1,11 +1,10 @@
-import React, { forwardRef, useState, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useState, useCallback, useEffect, useImperativeHandle, useRef, useMemo } from 'react';
 import {
     View, Text, TextInput, FlatList, StyleSheet, RefreshControl,
-    ActivityIndicator, Alert, Pressable, Platform, Modal,
+    ActivityIndicator, Alert, Pressable, Modal, Platform, Keyboard,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
-import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { jobsApi } from '../../api/jobs.api';
 import { adminApi } from '../../api/admin.api';
@@ -46,37 +45,53 @@ function dedupeJobs(list) {
     return out;
 }
 
-// ---- Picker wrapper: native dropdown(Android)/modal sheet(iOS). No z-index ever. ----
+// ---- Picker wrapper: modal sheet with built-in search, same on every platform. ----
 function PickerField({ value, options, onChange, placeholder = 'Select' }) {
-    const [iosVisible, setIosVisible] = useState(false);
+    const [visible, setVisible] = useState(false);
     const [tempValue, setTempValue] = useState(value);
+    const [search, setSearch] = useState('');
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+    useEffect(() => {
+        const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+        const showSub = Keyboard.addListener(showEvt, (e) => {
+            setKeyboardHeight(e?.endCoordinates?.height || 0);
+        });
+        const hideSub = Keyboard.addListener(hideEvt, () => {
+            setKeyboardHeight(0);
+        });
+
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
 
     const selectedLabel = options.find((o) => o.value === value)?.label;
 
-    if (Platform.OS === 'android') {
-        return (
-            <View style={styles.pickerBoxAndroid}>
-                <Picker
-                    selectedValue={value}
-                    onValueChange={(v) => onChange(v)}
-                    style={styles.pickerAndroidInner}
-                    dropdownIconColor={COLORS.textSecondary}
-                    mode="dropdown"
-                >
-                    {options.map((opt) => (
-                        <Picker.Item key={opt.value || 'all'} label={opt.label} value={opt.value} />
-                    ))}
-                </Picker>
-            </View>
-        );
-    }
+    const filteredOptions = useMemo(() => (
+        search
+            ? options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
+            : options
+    ), [options, search]);
+
+    const openSheet = () => {
+        setTempValue(value);
+        setSearch('');
+        setVisible(true);
+    };
+
+    const confirm = (val) => {
+        setTempValue(val);
+        onChange(val);
+        setVisible(false);
+    };
 
     return (
         <>
-            <Pressable
-                onPress={() => { setTempValue(value); setIosVisible(true); }}
-                style={styles.pickerBoxIos}
-            >
+            <Pressable onPress={openSheet} style={styles.pickerBox}>
                 <Text
                     numberOfLines={1}
                     style={[styles.pickerBoxText, !selectedLabel && { color: COLORS.textLight }]}
@@ -86,22 +101,66 @@ function PickerField({ value, options, onChange, placeholder = 'Select' }) {
                 <Ionicons name="chevron-down" size={12} color={COLORS.textLight} />
             </Pressable>
 
-            <Modal visible={iosVisible} transparent animationType="slide" onRequestClose={() => setIosVisible(false)}>
-                <Pressable style={styles.iosBackdrop} onPress={() => setIosVisible(false)} />
-                <View style={styles.iosSheet}>
-                    <View style={styles.iosSheetHeader}>
-                        <Pressable onPress={() => setIosVisible(false)}>
-                            <Text style={styles.iosCancel}>Cancel</Text>
-                        </Pressable>
-                        <Pressable onPress={() => { onChange(tempValue); setIosVisible(false); }}>
-                            <Text style={styles.iosDone}>Done</Text>
-                        </Pressable>
+            <Modal visible={visible} transparent animationType="none" onRequestClose={() => setVisible(false)}>
+                <View style={{ flex: 1 }}>
+                    <Pressable style={styles.sheetBackdrop} onPress={() => setVisible(false)} />
+                    <View style={[styles.sheet, { marginBottom: keyboardHeight }]}>
+                        <View style={styles.sheetHeader}>
+                            <Pressable onPress={() => setVisible(false)}>
+                                <Text style={styles.sheetCancel}>Cancel</Text>
+                            </Pressable>
+                            <Text style={{ fontWeight: '700', color: COLORS.text }}>{placeholder}</Text>
+                            <Pressable onPress={() => setVisible(false)}>
+                                <Text style={styles.sheetDone}>Done</Text>
+                            </Pressable>
+                        </View>
+
+                        <View style={styles.sheetSearchWrap}>
+                            <Ionicons name="search" size={16} color={COLORS.textLight} />
+                            <TextInput
+                                value={search}
+                                onChangeText={setSearch}
+                                placeholder="Search..."
+                                placeholderTextColor={COLORS.textLight}
+                                style={styles.sheetSearchInput}
+                                autoFocus
+                            />
+                            {search ? (
+                                <Pressable onPress={() => setSearch('')}>
+                                    <Ionicons name="close-circle" size={16} color={COLORS.textLight} />
+                                </Pressable>
+                            ) : null}
+                        </View>
+
+                        <FlatList
+                            data={filteredOptions}
+                            keyExtractor={(opt) => String(opt.value || 'all')}
+                            keyboardShouldPersistTaps="handled"
+                            style={{ maxHeight: 320 }}
+                            ListEmptyComponent={<Text style={styles.sheetEmpty}>No results</Text>}
+                            renderItem={({ item: opt }) => (
+                                <Pressable
+                                    onPress={() => confirm(opt.value)}
+                                    style={[
+                                        styles.sheetItem,
+                                        tempValue === opt.value && { backgroundColor: COLORS.primaryLight },
+                                    ]}
+                                >
+                                    <Text
+                                        style={{
+                                            color: tempValue === opt.value ? COLORS.primary : COLORS.text,
+                                            fontWeight: '600',
+                                        }}
+                                    >
+                                        {opt.label}
+                                    </Text>
+                                    {tempValue === opt.value ? (
+                                        <Ionicons name="checkmark" size={18} color={COLORS.primary} />
+                                    ) : null}
+                                </Pressable>
+                            )}
+                        />
                     </View>
-                    <Picker selectedValue={tempValue} onValueChange={setTempValue}>
-                        {options.map((opt) => (
-                            <Picker.Item key={opt.value || 'all'} label={opt.label} value={opt.value} />
-                        ))}
-                    </Picker>
                 </View>
             </Modal>
         </>
@@ -117,10 +176,10 @@ function JobSearchFilters({
     radiusKm, onRadiusChange,
     onClear,
 }) {
-    const categoryOptions = [
+    const categoryOptions = useMemo(() => ([
         { value: '', label: 'Job Profile' },
         ...(categories || []).map((c) => ({ value: c.name, label: c.name })),
-    ];
+    ]), [categories]);
 
     const hasActiveFilters = !!(category || areaCoords || radiusKm);
 
@@ -213,8 +272,8 @@ const JobsList = forwardRef(function JobsList({ route }, ref) {
     const [filters, setFilters] = useState({ sortBy: 'createdAt' });
     const [coords, setCoords] = useState(null);
     const [locLoading, setLocLoading] = useState(false);
-    const type = user?.userId?.role ==="jobseeker" ? false:true
-  
+    const type = user?.userId?.role === 'jobseeker' ? false : true;
+
     const { data: categories } = useFetch(() => adminApi.categories(type), []);
     const [category, setCategory] = useState('');
     const [areaInput, setAreaInput] = useState('');
@@ -229,6 +288,7 @@ const JobsList = forwardRef(function JobsList({ route }, ref) {
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const [loading, setLoading] = useState(true);
+    const [filterLoading, setFilterLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [savedIds, setSavedIds] = useState(new Set());
@@ -236,6 +296,7 @@ const JobsList = forwardRef(function JobsList({ route }, ref) {
     const [applyingId, setApplyingId] = useState(null);
 
     const requestIdRef = useRef(0);
+    const hasLoadedOnceRef = useRef(false);
 
     useEffect(() => {
         const initialCategory = route?.params?.category;
@@ -390,7 +451,13 @@ const JobsList = forwardRef(function JobsList({ route }, ref) {
         const requestId = ++requestIdRef.current;
 
         try {
-            if (append) setLoadingMore(true); else setLoading(true);
+            if (append) {
+                setLoadingMore(true);
+            } else if (!hasLoadedOnceRef.current) {
+                setLoading(true);
+            } else {
+                setFilterLoading(true);
+            }
 
             let res;
             if (mode === 'recommended') {
@@ -420,6 +487,7 @@ const JobsList = forwardRef(function JobsList({ route }, ref) {
             setJobs((prev) => dedupeJobs(append ? [...prev, ...list] : list));
             setHasMore(list.length >= PAGE_LIMIT);
             setPage(pageNum);
+            hasLoadedOnceRef.current = true;
         } catch (e) {
             if (requestId !== requestIdRef.current) return;
             if (!append) setJobs([]);
@@ -427,6 +495,7 @@ const JobsList = forwardRef(function JobsList({ route }, ref) {
             if (requestId === requestIdRef.current) {
                 setLoading(false);
                 setLoadingMore(false);
+                setFilterLoading(false);
             }
         }
     }, [mode, filters, search, ensureCoords]);
@@ -478,11 +547,6 @@ const JobsList = forwardRef(function JobsList({ route }, ref) {
         }
     }, [appliedIds, applyingId]);
 
-    const runSearch = useCallback(() => {
-        setMode('all');
-        setSearch(searchInput.trim());
-    }, [searchInput]);
-
     const clearSearch = useCallback(() => {
         setSearchInput('');
         if (search) {
@@ -501,13 +565,17 @@ const JobsList = forwardRef(function JobsList({ route }, ref) {
 
             <FlatList
                 data={jobs}
-                keyExtractor={(item, index) => item?._id ? String(item._id) : `job-${index}`}
+                keyExtractor={(item, index) => (item?._id ? String(item._id) : `job-${index}`)}
                 contentContainerStyle={styles.list}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
                 onEndReached={loadMore}
                 onEndReachedThreshold={0.4}
                 ListHeaderComponent={
                     <View>
+                        <View style={[styles.filterLoadingBar, { opacity: filterLoading ? 1 : 0 }]}>
+                            <ActivityIndicator size="small" color={COLORS.primary} />
+                        </View>
+
                         <View style={styles.modeRow}>
                             {MODES?.map((m) => {
                                 const active = mode === m.key;
@@ -602,6 +670,8 @@ export default JobsList;
 const styles = StyleSheet.create({
     list: { padding: SPACING.lg, flexGrow: 1 },
 
+    filterLoadingBar: { alignItems: 'center', height: 28, justifyContent: 'center' },
+
     modeRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
     modeChip: {
         flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
@@ -631,23 +701,8 @@ const styles = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
 
-    // ---- Android picker: native dialog/dropdown, system overlay, no z-index needed ----
-    pickerBoxAndroid: {
-        height: 44,
-        borderRadius: RADIUS.md,
-        borderWidth: 1.5,
-        borderColor: COLORS.border,
-        backgroundColor: COLORS.surfaceAlt,
-        justifyContent: 'center',
-        overflow: 'hidden',
-    },
-    pickerAndroidInner: {
-        color: COLORS.text,
-        marginVertical: -8, // trims extra native vertical padding Android adds
-    },
-
-    // ---- iOS trigger box (opens modal sheet) ----
-    pickerBoxIos: {
+    // ---- Picker trigger box (opens modal sheet) ----
+    pickerBox: {
         height: 44,
         flexDirection: 'row',
         alignItems: 'center',
@@ -665,19 +720,19 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
-    // ---- iOS modal sheet ----
-    iosBackdrop: {
+    // ---- modal sheet (used by PickerField) ----
+    sheetBackdrop: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.3)',
     },
-    iosSheet: {
+    sheet: {
         backgroundColor: COLORS.surface,
         borderTopLeftRadius: RADIUS.xl,
         borderTopRightRadius: RADIUS.xl,
-        paddingBottom: SPACING.lg,
+        paddingBottom: SPACING.lg + 52,
         ...SHADOWS.md,
     },
-    iosSheetHeader: {
+    sheetHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -686,8 +741,38 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: COLORS.border,
     },
-    iosCancel: { color: COLORS.textSecondary, fontWeight: '600', fontSize: FONTS.sizes.sm },
-    iosDone: { color: COLORS.primary, fontWeight: '700', fontSize: FONTS.sizes.sm },
+    sheetCancel: { color: COLORS.textSecondary, fontWeight: '600', fontSize: FONTS.sizes.sm },
+    sheetDone: { color: COLORS.primary, fontWeight: '700', fontSize: FONTS.sizes.sm },
+    sheetSearchWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.sm,
+        paddingHorizontal: SPACING.lg,
+        paddingVertical: SPACING.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    sheetSearchInput: {
+        flex: 1,
+        fontSize: FONTS.sizes.sm,
+        color: COLORS.text,
+        paddingVertical: 4,
+    },
+    sheetItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    sheetEmpty: {
+        padding: 16,
+        fontSize: 14,
+        color: COLORS.textLight,
+        textAlign: 'center',
+    },
 
     areaHint: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary },
     suggestionsBox: {

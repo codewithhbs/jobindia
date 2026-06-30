@@ -22,10 +22,8 @@ const BASE_SERVER = 'https://jobapi.adsdigitalmedia.com';
 
 const FIELDS = [
   { key: 'name', label: 'Full Name', icon: 'person-outline', placeholder: 'Enter your name', keyboard: 'default', caps: 'words' },
-  // { key: 'email', label: 'Email', icon: 'mail-outline', placeholder: 'Enter your email', keyboard: 'email-address', caps: 'none' },
   { key: 'city', label: 'City', icon: 'location-outline', placeholder: 'Enter city', keyboard: 'default', caps: 'words' },
-  { key: 'state', label: 'Location', icon: 'map-outline', placeholder: 'Enter state', keyboard: 'default', caps: 'words' },
-  { key: 'pincode', label: 'Pincode', icon: 'barcode-outline', placeholder: 'Enter pincode', keyboard: 'numeric', caps: 'none' },
+  { key: 'state', label: 'Location', icon: 'map-outline', placeholder: 'Enter full address / location', keyboard: 'default', caps: 'sentences', multiline: true },
 ];
 
 export default function BasicDetails({ navigation, route }) {
@@ -33,7 +31,6 @@ export default function BasicDetails({ navigation, route }) {
   const logout = useAuthStore((s) => s.logout);
   const { data: profile, refetch } = useFetch(() => userApi.getProfile(), []);
   const user = profile?.user || {};
-
 
   const redirectParams = route?.params;
   const isForcedFlow = Boolean(redirectParams);
@@ -44,7 +41,7 @@ export default function BasicDetails({ navigation, route }) {
   const [coords, setCoords] = useState(null);
   const [deviceInfo, setDeviceInfo] = useState(null);
   const [pushToken, setPushToken] = useState(null);
-  const [form, setForm] = useState({ name: '', email: '', city: '', state: '', pincode: '' });
+  const [form, setForm] = useState({ name: '', city: '', state: '' });
 
   const isFocused = useRef(false);
 
@@ -58,10 +55,8 @@ export default function BasicDetails({ navigation, route }) {
     if (!user?._id) return;
     setForm({
       name: user.name || '',
-      email: user.email || '',
       city: user.location?.city || '',
       state: user.location?.state || '',
-      pincode: user.location?.pincode || '',
     });
     if (user.avatar) {
       setAvatar({ uri: `${BASE_SERVER}${user.avatar.startsWith('/') ? '' : '/'}${user.avatar}` });
@@ -119,8 +114,7 @@ export default function BasicDetails({ navigation, route }) {
         setForm((p) => ({
           ...p,
           city: geo.city || geo.district || p.city,
-          state: geo.region || p.state,
-          pincode: geo.postalCode || p.pincode,
+          state: geo.formattedAddress || p.state,
         }));
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -177,17 +171,20 @@ export default function BasicDetails({ navigation, route }) {
       Toast.show({ type: 'error', text1: 'Name is required' });
       return;
     }
+    const avatarUri = avatar?.uri || null;
+    if (!avatarUri) {
+      Toast.show({ type: 'error', text1: 'Profile photo required' });
+      return;
+    }
     try {
       setSaving(true);
       const formData = new FormData();
       formData.append('name', form.name);
-      formData.append('email', form.email);
       if (pushToken) formData.append('fcmToken', pushToken);
 
       formData.append('location', JSON.stringify({
         city: form.city,
         state: form.state,
-        pincode: form.pincode,
         ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
       }));
       if (deviceInfo) formData.append('deviceInfo', JSON.stringify(deviceInfo));
@@ -262,17 +259,25 @@ export default function BasicDetails({ navigation, route }) {
           {FIELDS.map((f, i) => (
             <View key={f.key} style={[styles.fieldWrap, i !== 0 && { marginTop: 16 }]}>
               <Text style={styles.fieldLabel}>{f.label}</Text>
-              <View style={styles.inputWrap}>
-                <Ionicons name={f.icon} size={18} color="#9DA3C0" style={styles.inputIcon} />
+              <View style={[styles.inputWrap, f.multiline && styles.inputWrapMultiline]}>
+                <Ionicons
+                  name={f.icon}
+                  size={18}
+                  color="#9DA3C0"
+                  style={[styles.inputIcon, f.multiline && styles.inputIconMultiline]}
+                />
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, f.multiline && styles.inputMultiline]}
                   placeholder={f.placeholder}
                   placeholderTextColor="#C0C4D8"
                   keyboardType={f.keyboard}
                   autoCapitalize={f.caps}
                   value={form[f.key]}
                   onChangeText={(t) => setForm((p) => ({ ...p, [f.key]: t }))}
-                  returnKeyType={i === FIELDS.length - 1 ? 'done' : 'next'}
+                  multiline={!!f.multiline}
+                  numberOfLines={f.multiline ? 4 : 1}
+                  textAlignVertical={f.multiline ? 'top' : 'center'}
+                  returnKeyType={f.multiline ? 'default' : (i === FIELDS.length - 1 ? 'done' : 'next')}
                 />
               </View>
             </View>
@@ -382,8 +387,17 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#E2E5F0',
     borderRadius: 12, backgroundColor: '#F8F9FF', paddingHorizontal: 14,
   },
+  inputWrapMultiline: {
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+  },
   inputIcon: { marginRight: 10 },
+  inputIconMultiline: { marginTop: 2 },
   input: { flex: 1, paddingVertical: 13, fontSize: 15, color: '#1A1D2E' },
+  inputMultiline: {
+    paddingVertical: 0,
+    minHeight: 70,
+  },
 
   locRow: {
     marginTop: 16,

@@ -65,7 +65,7 @@ export function OnboardingScreen({ navigation }) {
         />
       ) : (
         <Text style={[styles.onboardingLogoText, { top: insets.top + SPACING.md }]}>
-          {settings?.app_name || 'Krishna Job'}
+          {settings?.app_name || 'Kishan Solution'}
         </Text>
       )}
 
@@ -121,7 +121,7 @@ export function SplashScreen() {
   const { data: settings } = useFetch(() => adminApi.publicSettings(), []);
 
   return (
-    <LinearGradient colors={[COLORS.heroTop, COLORS.heroBot]} style={styles.splash}>
+    <LinearGradient colors={[COLORS.primaryLight, COLORS.heroBot]} style={styles.splash}>
       <View style={{ alignItems: 'center' }}>
         {settings?.app_logo ? (
           <Image
@@ -130,9 +130,9 @@ export function SplashScreen() {
             resizeMode="contain"
           />
         ) : (
-          <Text style={styles.splashLogo}>{settings?.app_name || 'Krishna Job'}</Text>
+          <Text style={styles.splashLogo}>{settings?.app_name || 'Kishan Solution'}</Text>
         )}
-        <Text style={styles.splashTag}>Naukri ab aasaan</Text>
+       
       </View>
     </LinearGradient>
   );
@@ -166,6 +166,6 @@ const styles = StyleSheet.create({
   dotActive: { width: 24, backgroundColor: COLORS.primary },
   splash: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: SPACING.sm },
   splashLogo: { fontSize: 40, fontWeight: '900', color: COLORS.white },
-  splashLogoImage: { width: 180, height: 80, marginBottom: SPACING.sm },
+  splashLogoImage: { width: 180, height: 181, marginBottom: SPACING.sm },
   splashTag: { fontSize: FONTS.sizes.md, color: 'rgba(255,255,255,0.85)' },
 });

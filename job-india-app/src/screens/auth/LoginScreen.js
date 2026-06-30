@@ -28,7 +28,7 @@ export function LoginScreen({ navigation }) {
   const { data: setting } = useFetch(() => adminApi.publicSettings(), []);
   const { data: roleOptionsData, loading: roleOptionsLoading } = useFetch(() => adminApi.roleOptions(), []);
 
-  const appName = setting?.app_name || 'Krishna Job';
+  const appName = setting?.app_name || 'Kishan Solution';
   const appLogo = setting?.app_logo;
   const brandColor = setting?.primary_color || COLORS.primary;
 
@@ -72,8 +72,17 @@ export function LoginScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <LinearGradient colors={[COLORS.primaryMid, COLORS.white]} style={styles.hero}>
           {appLogo ? (
             <Image source={{ uri: appLogo }} style={styles.logoImage} resizeMode="contain" />
@@ -145,6 +154,9 @@ export function LoginScreen({ navigation }) {
             </Text>
             .
           </Text>
+
+          {/* extra bottom space so the last field/button can scroll clear of the keyboard */}
+          <View style={{ height: 140 }} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -181,6 +193,8 @@ function RoleCard({ option, active, brandColor, onPress }) {
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
+
   scroll: { flexGrow: 1, backgroundColor: COLORS.background, paddingBottom: 50 },
 
   hero: {

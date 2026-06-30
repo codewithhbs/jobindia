@@ -42,20 +42,39 @@ function WhyUsSection() {
 }
 
 // ---- "Search jobs by interest" style category grid (icon + title cards) ----
-function CategoryCard({ icon, label, active, onPress }) {
+function CategoryCard({ icon, label, image, active, onPress }) {
   return (
     <Pressable onPress={onPress} style={styles.catItem}>
       <View style={[styles.catIconBox, active && styles.catIconBoxActive]}>
-        <Text style={styles.catIconEmoji}>{icon}</Text>
+        {image ? (
+          <Image
+            source={{ uri: image }}
+            style={styles.catImage}
+            resizeMode="contain"
+          />
+        ) : (
+          <Text style={styles.catIconEmoji}>{icon}</Text>
+        )}
       </View>
-      <Text style={[styles.catTitle, active && styles.catTitleActive]} numberOfLines={2}>
+
+      <Text
+        style={[styles.catTitle, active && styles.catTitleActive]}
+        numberOfLines={2}
+      >
         {label}
       </Text>
     </Pressable>
   );
 }
 
+const CATEGORY_PREVIEW_LIMIT = 8;
+
 function CategoriesGrid({ categories, category, onSelect, onSeeAll }) {
+  const [expanded, setExpanded] = useState(false);
+  const list = categories || [];
+  const hasMore = list.length > CATEGORY_PREVIEW_LIMIT;
+  const visible = expanded ? list : list.slice(0, CATEGORY_PREVIEW_LIMIT);
+
   return (
     <View style={styles.categoriesWrap}>
       <View style={styles.categoriesTitleRow}>
@@ -65,16 +84,24 @@ function CategoriesGrid({ categories, category, onSelect, onSeeAll }) {
         </Pressable>
       </View>
       <View style={styles.catGrid}>
-        {(categories || []).map((c) => (
+        {visible.map((c) => (
           <CategoryCard
             key={c._id}
             icon={c.icon}
+            image={c.image}
+
             label={c.name}
             active={category === c.name}
             onPress={() => onSelect(c.name)}
           />
         ))}
       </View>
+      {hasMore && (
+        <Pressable onPress={() => setExpanded((p) => !p)} style={styles.viewMoreBtn} hitSlop={8}>
+          <Text style={styles.viewMoreText}>{expanded ? 'View less' : 'View more'}</Text>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={COLORS.primary} />
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -201,7 +228,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  logo: { width: 150, height: 30 },
+  logo: { width: 40, height: 50 },
   logoFallback: { fontSize: FONTS.sizes.lg, fontWeight: '800', color: COLORS.primary },
 
   greetWrap: {
@@ -255,6 +282,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryLight,
     borderColor: COLORS.primary,
   },
+  catImage: {
+    width: 68,
+    height: 68,
+  },
   catIconEmoji: { fontSize: 20 },
   catTitle: {
     fontSize: 10,
@@ -264,6 +295,16 @@ const styles = StyleSheet.create({
     lineHeight: 12,
   },
   catTitleActive: { color: COLORS.primary },
+
+  viewMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  viewMoreText: { fontSize: FONTS.sizes.sm, fontWeight: '700', color: COLORS.primary },
 
   // ---- Why-us / trust section ----
   whyWrap: { marginTop: SPACING.xxl, paddingHorizontal: SPACING.lg },

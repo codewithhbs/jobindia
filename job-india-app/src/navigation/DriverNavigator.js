@@ -25,8 +25,8 @@ import { kycApi } from '../api/kyc.api';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 const TAB_ICONS = {
-  Jobs: { active: 'car', inactive: 'car-outline' },
-  JobMap: { active: 'map', inactive: 'map-outline' },
+  Home: { active: 'car', inactive: 'car-outline' },
+  Jobs: { active: 'map', inactive: 'map-outline' },
   Applications: { active: 'document-text', inactive: 'document-text-outline' },
   Profile: { active: 'person', inactive: 'person-outline' },
   Kyc: { active: 'shield-checkmark', inactive: 'shield-checkmark-outline' },
@@ -34,7 +34,7 @@ const TAB_ICONS = {
 
 function Tabs({ kycStatus }) {
   const insets = useSafeAreaInsets();
-  const initialRoute = kycStatus === 'not_submitted' ? 'Kyc' : 'Jobs';
+  const initialRoute = kycStatus === 'not_submitted' ? 'Kyc' : 'Home';
   const isForced = kycStatus === 'not_submitted';
 
   return (
@@ -64,8 +64,8 @@ function Tabs({ kycStatus }) {
           : undefined,
       })}
     >
-      <Tab.Screen name="Jobs" component={HomeScreen} />
-      <Tab.Screen name="JobMap" component={JobMapScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Jobs" component={JobsList} />
       <Tab.Screen name="Applications" component={ApplicationsScreen} />
       <Tab.Screen
         name="Kyc"

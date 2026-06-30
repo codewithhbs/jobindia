@@ -13,8 +13,8 @@ export function AuthNavigator() {
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Otp" component={OtpScreen} />
-            <Stack.Screen name="Cms" component={CmsScreen} />
-      
+      <Stack.Screen name="Cms" component={CmsScreen} />
+
     </Stack.Navigator>
   );
 }

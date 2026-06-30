@@ -105,8 +105,15 @@ const jobSeekerProfileSchema = new mongoose.Schema(
     ],
     preferredLocations: [
       {
+        name: {
+          type: String,
+          required: true,
+        },
+        lat: Number,
+        lng: Number,
         city: String,
         state: String,
+        country: String,
       },
     ],
     expectedSalary: {
@@ -122,7 +129,10 @@ const jobSeekerProfileSchema = new mongoose.Schema(
     },
     isOpenToWork: { type: Boolean, default: true },
     willingToRelocate: { type: Boolean, default: false },
-
+    isFresher: {
+      type: Boolean,
+      default: false,
+    },
     // ── Links ──
     links: {
       linkedin: String,
@@ -158,20 +168,19 @@ jobSeekerProfileSchema.set('toJSON', { virtuals: true });
 jobSeekerProfileSchema.set('toObject', { virtuals: true });
 
 // Compute a rough completeness % whenever the profile is saved.
-jobSeekerProfileSchema.methods.computeCompleteness = function computeCompleteness() {
+jobSeekerProfileSchema.methods.computeCompleteness = function () {
   const checks = [
-    !!this.headline,
-    !!this.about,
     !!(this.resume && this.resume.fileUrl),
     this.education.length > 0,
-    this.experience.length > 0 || this.totalExperienceMonths === 0,
+    this.isFresher || this.experience.length > 0,
     this.skills.length > 0,
-    this.languages.length > 0,
     this.preferredCategories.length > 0,
     !!(this.expectedSalary && this.expectedSalary.min),
   ];
+
   const done = checks.filter(Boolean).length;
   this.profileCompleteness = Math.round((done / checks.length) * 100);
+
   return this.profileCompleteness;
 };
 

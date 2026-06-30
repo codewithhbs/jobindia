@@ -61,7 +61,7 @@ export function PlansScreen({ navigation }) {
         key: order.key,
         order_id: order.orderId,
         amount: order.amount,
-        name: 'Krishna Job',
+        name: 'Kishan Solution',
         prefill: { contact: user?.phone?.replace('+91', ''), name: user?.name || '' },
         theme: { color: COLORS.primary },
       };

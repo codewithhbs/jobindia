@@ -21,11 +21,11 @@ router.get('/role-options', getPublicRoleOptions);
 
 
 // admin-only — manage options
-router.get('/role-options/all',authenticate, isAdmin, getAllRoleOptions);
-router.post('/role-options', authenticate,isAdmin, createRoleOption);
-router.put('/role-options/:id', authenticate,isAdmin, updateRoleOption);
-router.delete('/role-options/:id', authenticate,isAdmin, deleteRoleOption);
-router.patch('/role-options/reorder', authenticate,isAdmin, reorderRoleOptions);
+router.get('/role-options/all', authenticate, isAdmin, getAllRoleOptions);
+router.post('/role-options', authenticate, isAdmin, createRoleOption);
+router.put('/role-options/:id', authenticate, isAdmin, updateRoleOption);
+router.delete('/role-options/:id', authenticate, isAdmin, deleteRoleOption);
+router.patch('/role-options/reorder', authenticate, isAdmin, reorderRoleOptions);
 
 // Mobile app: get dynamic form fields (auth required)
 router.get('/forms/fields', authenticate, adminController.getFormFields);
@@ -41,8 +41,9 @@ router.put('/forms/fields/:id', authenticate, isAdmin, adminController.updateFor
 router.delete('/forms/fields/:id', authenticate, isAdmin, adminController.deleteFormField);
 router.post('/forms/fields/reorder', authenticate, isAdmin, adminController.reorderFormFields);
 
-router.post('/categories', authenticate, isAdmin, adminController.createCategory);
-router.put('/categories/:id', authenticate, isAdmin, adminController.updateCategory);
+router.post('/categories', upload.single("category"), processUpload("category"), authenticate, isAdmin, adminController.createCategory);
+router.put('/categories/:id', upload.single("category"), authenticate, isAdmin, processUpload("category"), adminController.updateCategory);
+router.delete('/categories/:id', authenticate, isAdmin, adminController.deleteCategory);
 
 router.get('/cms', adminController.listCMSPages);
 router.post('/cms', authenticate, isAdmin, adminController.upsertCMSPage);

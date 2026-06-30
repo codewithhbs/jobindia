@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, Linking } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Linking, Image } from 'react-native';
 import React from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
@@ -35,7 +35,7 @@ function buildSocialLinks(setting) {
     .map((m) => ({ id: m.key, icon: m.icon, url: setting[m.key] }));
 }
 
-export default function AppFooter({refreshing}) {
+export default function AppFooter({ refreshing }) {
   const navigation = useNavigation();
 
   const { data: cmsData } = useFetch(() => adminApi.allcms(), [refreshing]);
@@ -43,8 +43,9 @@ export default function AppFooter({refreshing}) {
 
   const cmsPages = (cmsData || []).filter((p) => p.isActive);
   const socials = buildSocialLinks(setting);
+  const app_logo = setting?.app_logo || 'Kishan Solution';
 
-  const appName = setting?.app_name || 'Krishna Job';
+  const appName = setting?.app_name || 'Kishan Solution';
   const brandColor = setting?.primary_color || COLORS.primary;
   const supportEmail = setting?.support_email;
   const supportPhone = setting?.support_phone;
@@ -75,14 +76,22 @@ export default function AppFooter({refreshing}) {
       {/* ── Brand row ── */}
       <View style={styles.footerTop}>
         <View style={styles.footerBrandRow}>
-          <View style={[styles.footerLogo, { backgroundColor: brandColor }]}>
-            <Ionicons name="briefcase" size={18} color={COLORS.white} />
+          <View style={[styles.footerLogo]}>
+            {app_logo ? (
+              <Image
+                source={{ uri: app_logo }}
+                style={{ width: 40, height: 40, resizeMode: 'contain' }}
+              />
+            ) : (
+              <Ionicons name="briefcase" size={18} color={COLORS.white} />
+            )}
           </View>
           <View>
+            
             <Text style={styles.footerBrand}>{appName}</Text>
             <View style={styles.taglineRow}>
-              <IndiaFlagBadge width={16} height={11} />
-              <Text style={styles.footerTagline}>Banaya Bharat ke liye</Text>
+
+              <Text style={styles.footerTagline}>आपकी सफलता हमारा लक्ष्य</Text>
             </View>
           </View>
         </View>

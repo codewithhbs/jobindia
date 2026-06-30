@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, Linking } from 'react-native';
+import { View, Text, ScrollView, Share, StyleSheet, Pressable, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,7 +21,17 @@ import { useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 const DEFAULT_SUPPORT_NUMBER = '+911234567890'; // ✅ apna default support number daal de
 
+const APP_LINKS = {
+  android: 'https://play.google.com/store/apps/details?id=com.yourcompany.krishnajobs',
+  ios: 'https://apps.apple.com/app/idXXXXXXXXX',
+  web: 'https://jobapi.adsdigitalmedia.com', // fallback agar web bhi hai
+};
 
+const getAppLink = (jobId) => {
+  if (Platform.OS === 'android') return `${APP_LINKS.android}`;
+  if (Platform.OS === 'ios') return `${APP_LINKS.ios}`;
+  return APP_LINKS.web;
+};
 function formatSalaryDisplay(salary) {
   if (!salary) return 'Not disclosed';
   if (salary.isHidden) return 'Not disclosed';
@@ -32,7 +42,10 @@ function formatSalaryDisplay(salary) {
   if (min) return `${symbol}${min.toLocaleString()}+ / ${period}`;
   return `Up to ${symbol}${max.toLocaleString()} / ${period}`;
 }
-
+function isWithinCallHours() {
+  const hour = new Date().getHours();
+  return hour >= 9 && hour < 19; // 9 AM - 7 PM
+}
 function formatLocationDisplay(location) {
   if (!location) return 'Not specified';
   const parts = [location.city, location.state].filter(Boolean);
@@ -64,6 +77,42 @@ function daysUntil(d) {
   return Math.round((target - today) / 86400000);
 }
 
+const shareJob = async (job) => {
+  try {
+    const skills = Array.isArray(job.skills) ? job.skills.join(', ') : '';
+    const deadline = job.applicationDeadline
+      ? new Date(job.applicationDeadline).toLocaleDateString('en-IN')
+      : '';
+
+    const appLink = `https://play.google.com/store/apps/details?id=com.yourcompany.krishnajobs&jobId=${job._id}`;
+
+    const lines = [
+      `🔹 ${job.title}`,
+      `${job.companyName || job.employerProfile?.companyName || 'Company'}`,
+      `📍 ${job.location?.city || ''}, ${job.location?.state || ''}`,
+      job.jobType ? `💼 Job Type: ${job.jobType}` : '',
+      job.experienceRequired || job.minExperience != null
+        ? `🎯 Experience: ${job.experienceRequired || `${job.minExperience || 0}+ yrs`}`
+        : '',
+      job.salaryMin || job.salaryMax
+        ? `💰 Salary: ₹${job.salaryMin || 0} - ₹${job.salaryMax || 0}/mo`
+        : '',
+      job.vacancies ? `👥 Openings: ${job.vacancies}` : '',
+      skills ? `🛠 Skills: ${skills}` : '',
+      deadline ? `⏳ Apply before: ${deadline}` : '',
+      '',
+      job.description ? job.description.slice(0, 300) : '',
+      '',
+      `👉 Apply now on Kishan Job app: ${appLink}`,
+    ].filter(Boolean);
+
+    const message = lines.join('\n');
+
+    await Share.share({ message, title: job.title });
+  } catch (e) {
+    console.log('Share failed:', e.message);
+  }
+};
 function expiryMeta(d) {
   const days = daysUntil(d);
   if (days === null) return null;
@@ -265,6 +314,16 @@ export default function JobDetailScreen({ route, navigation }) {
   const callNumber = companyPhone || DEFAULT_SUPPORT_NUMBER;
 
   const handleCall = () => {
+    if (!isWithinCallHours()) {
+      Alert.show({
+        variant: 'warning',
+        icon: 'time-outline',
+        title: 'Call support closed',
+        message: 'Calling is available between 9:00 AM and 7:00 PM. Please try again during these hours, or message us on WhatsApp.',
+        buttons: [{ text: 'OK', style: 'cancel' }],
+      });
+      return;
+    }
     Linking.openURL(`tel:${callNumber}`).catch(() =>
       toast.error('Could not open dialer')
     );
@@ -293,11 +352,20 @@ export default function JobDetailScreen({ route, navigation }) {
     : (!!profile && !account?.isProfileComplete);
 
   const applyBusy = applying || uploadingResume;
-
+  const callEnabled = isWithinCallHours();
   return (
     <Screen edges={['top']} noPadding>
-      <Header title="Job Details" onBack={() => navigation.goBack()} />
+
       {/* ✅ Free job notice */}
+      <Header
+        title="Job Details"
+        onBack={() => navigation.goBack()}
+        right={
+          <Pressable onPress={() => shareJob(job)} hitSlop={8}>
+            <Ionicons name="share-social-outline" size={22} color={COLORS.text} />
+          </Pressable>
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {showCompletenessBanner && (
@@ -388,7 +456,7 @@ export default function JobDetailScreen({ route, navigation }) {
                   )}
                 </View>
 
-                <Pressable onPress={handleCall} style={styles.callBtn}>
+                <Pressable onPress={handleCall} style={[styles.callBtn, !callEnabled && styles.callBtnDisabled]}>
                   <Ionicons name="call" size={18} color={COLORS.surface} />
                 </Pressable>
                 <Pressable onPress={handleWhatsapp} style={styles.callBtn}>
@@ -521,7 +589,7 @@ export default function JobDetailScreen({ route, navigation }) {
               </View>
             ) : null}
 
-            {req.gender  ? (
+            {req.gender ? (
               <View style={styles.bullet}>
                 <Ionicons name="person-outline" size={16} color={COLORS.text} />
                 <Text style={styles.body}>Preferred Gender: {req.gender}</Text>
@@ -565,7 +633,7 @@ export default function JobDetailScreen({ route, navigation }) {
         ) : null}
 
         {/* ✅ Posting info — published / deadline / expiry dates together */}
-        <Section title="Posting Info">
+        {/* <Section title="Posting Info">
           {job.publishedAt ? (
             <View style={styles.bullet}>
               <Ionicons name="checkmark-done-outline" size={16} color={COLORS.text} />
@@ -584,7 +652,7 @@ export default function JobDetailScreen({ route, navigation }) {
               <Text style={styles.body}>Listing closes: {formatDateDisplay(job.expiryDate)}</Text>
             </View>
           ) : null}
-        </Section>
+        </Section> */}
       </ScrollView>
 
       {!isEmployer && (

@@ -184,11 +184,19 @@ export const Select = ({
   onChange,
   placeholder = 'Select option',
   error,
+  searchable = true,
 }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
   const selectedLabel =
     options.find((o) => o.value === value)?.label || value;
+
+  const filteredOptions = search
+    ? options.filter((o) =>
+        o.label.toLowerCase().includes(search.toLowerCase())
+      )
+    : options;
 
   return (
     <View style={{ gap: SPACING.xs }}>
@@ -220,33 +228,57 @@ export const Select = ({
 
       {open && (
         <View style={styles.selectDropdown}>
-          {options.map((opt) => (
-            <Pressable
-              key={opt.value}
-              onPress={() => {
-                onChange(opt.value);
-                setOpen(false);
-              }}
-              style={[
-                styles.selectItem,
-                value === opt.value && {
-                  backgroundColor: COLORS.primaryLight,
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  color:
-                    value === opt.value
-                      ? COLORS.primary
-                      : COLORS.text,
-                  fontWeight: '600',
+          {searchable && (
+            <View style={styles.selectSearchWrap}>
+              <Ionicons name="search" size={16} color={COLORS.textLight} />
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search..."
+                placeholderTextColor={COLORS.textLight}
+                style={styles.selectSearchInput}
+                autoFocus
+              />
+              {search ? (
+                <Pressable onPress={() => setSearch('')}>
+                  <Ionicons name="close-circle" size={16} color={COLORS.textLight} />
+                </Pressable>
+              ) : null}
+            </View>
+          )}
+
+          {filteredOptions.length === 0 ? (
+            <Text style={styles.selectEmpty}>No results</Text>
+          ) : (
+            filteredOptions.map((opt) => (
+              <Pressable
+                key={opt.value}
+                onPress={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                  setSearch('');
                 }}
+                style={[
+                  styles.selectItem,
+                  value === opt.value && {
+                    backgroundColor: COLORS.primaryLight,
+                  },
+                ]}
               >
-                {opt.label}
-              </Text>
-            </Pressable>
-          ))}
+                <Text
+                  style={{
+                    color:
+                      value === opt.value
+                        ? COLORS.primary
+                        : COLORS.text,
+                    fontWeight: '600',
+                  }}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))
+          )}
         </View>
       )}
 
@@ -254,7 +286,6 @@ export const Select = ({
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   label: {
@@ -340,7 +371,29 @@ const styles = StyleSheet.create({
   paddingHorizontal: SPACING.lg,
   minHeight: 52,
 },
+selectSearchWrap: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: SPACING.sm,
+  paddingHorizontal: SPACING.md,
+  paddingVertical: SPACING.sm,
+  borderBottomWidth: 1,
+  borderBottomColor: COLORS.border,
+},
 
+selectSearchInput: {
+  flex: 1,
+  fontSize: FONTS.sizes.sm,
+  color: COLORS.text,
+  paddingVertical: 4,
+},
+
+selectEmpty: {
+  padding: SPACING.md,
+  fontSize: FONTS.sizes.sm,
+  color: COLORS.textLight,
+  textAlign: 'center',
+},
 selectDropdown: {
   borderWidth: 1,
   borderColor: COLORS.border,

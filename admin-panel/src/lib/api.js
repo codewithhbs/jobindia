@@ -40,6 +40,8 @@ export const API = {
     list: () => unwrap(api.get('/admin/categories')),
     create: (body) => unwrap(api.post('/admin/categories', body)),
     update: (id, body) => unwrap(api.put(`/admin/categories/${id}`, body)),
+    delete: (id) => unwrap(api.delete(`/admin/categories/${id}`)),
+
   },
   notifications: {
     broadcast: (body) => unwrap(api.post('/notifications/broadcast', body)),

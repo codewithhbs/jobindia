@@ -1,3 +1,4 @@
+const { deleteFile } = require('../middleware/upload.middleware');
 const { Settings, FormField, Category, CMSPage, OnboardingScreen, FAQ, SubscriptionPlan, HomeSlider } = require('../models/admin.model');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
@@ -98,55 +99,142 @@ exports.reorderFormFields = async (req, res, next) => {
 };
 
 // ===== CATEGORIES =====
-
 exports.getCategories = async (req, res, next) => {
   try {
     const { isActive, is_Drivercat } = req.query;
 
     const filter = {};
 
-    // isActive filter
     if (isActive !== undefined) {
       filter.isActive = isActive === "true";
     }
 
-    // is_Drivercat filter
-    if (
-      is_Drivercat !== undefined &&
-      is_Drivercat !== "all"
-    ) {
+    if (is_Drivercat !== undefined && is_Drivercat !== "all") {
       filter.is_Drivercat = is_Drivercat === "true";
     }
 
     const categories = await Category.find(filter)
       .sort({ order: 1, name: 1 });
 
-    res.json({
-      success: true,
-      data: categories,
+    const IMAGE_IP = process.env.IMAGE_IP;
+
+    const data = categories.map((category) => {
+      const obj = category.toObject();
+
+      if (obj.image) {
+        obj.image = `${IMAGE_IP}${obj.image}`;
+      }
+
+      return obj;
     });
 
+    res.json({
+      success: true,
+      data,
+    });
   } catch (error) {
     next(error);
   }
 };
 exports.createCategory = async (req, res, next) => {
   try {
-    const { name, icon, image, description, parentId, order, is_Drivercat = false } = req.body;
-    const slug = name.toLowerCase().replace(/\s+/g, '-');
-    const category = await Category.create({ name, slug, is_Drivercat, icon, image, description, parentId, order });
-    res.status(201).json({ success: true, data: category });
-  } catch (error) { next(error); }
+    const uploadedImage = req.uploadedFiles?.category || null;
+
+    const {
+      name,
+      icon,
+      description,
+      parentId,
+      order,
+      is_Drivercat = false,
+    } = req.body;
+
+    const slug = name.trim().toLowerCase().replace(/\s+/g, "-");
+
+    const category = await Category.create({
+      name,
+      slug,
+      icon,
+      image: uploadedImage,
+      description,
+      parentId,
+      order,
+      is_Drivercat,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: category,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
+exports.deleteCategory = async (req, res, next) => {
+  try {
+    const category = await Category.findById(req.params.id);
+
+    if (!category) {
+      throw new AppError("Category not found", 404);
+    }
+
+    // Delete image from storage
+    if (category.image) {
+      deleteFile(category.image);
+    }
+
+    // Delete category
+    await Category.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: "Category deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 exports.updateCategory = async (req, res, next) => {
   try {
-    const category = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!category) throw new AppError('Category not found', 404);
-    res.json({ success: true, data: category });
-  } catch (error) { next(error); }
-};
+    const uploadedImage = req.uploadedFiles?.category || null;
 
+    const category = await Category.findById(req.params.id);
+
+    if (!category) {
+      throw new AppError("Category not found", 404);
+    }
+
+    const oldImage = category.image;
+
+    if (req.body.name) {
+      req.body.slug = req.body.name.trim().toLowerCase().replace(/\s+/g, "-");
+    }
+
+    if (uploadedImage) {
+      req.body.image = uploadedImage;
+    }
+
+    const updatedCategory = await Category.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    // Delete old image only if a new one was uploaded
+    if (uploadedImage && oldImage) {
+     const del = deleteFile(oldImage);
+   
+    }
+
+    res.json({
+      success: true,
+      data: updatedCategory,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 // ===== CMS PAGES =====
 
 exports.getCMSPage = async (req, res, next) => {
