@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   NavigationContainer,
   DefaultTheme,
@@ -10,14 +10,16 @@ import { AuthNavigator } from './AuthNavigator';
 import { JobSeekerNavigator } from './JobSeekerNavigator';
 import { EmployerNavigator } from './EmployerNavigator';
 import { DriverNavigator } from './DriverNavigator';
-
+import { adminApi } from '../api/admin.api';
+import { MaintenanceScreen } from '../screens/auth/MaintenanceScreen';
 import { useAuthStore } from '../store/authStore';
 import { ROLES } from '../constants/config';
 import { attachNotificationListeners } from '../services/notifications';
 import { COLORS } from '../constants/theme';
 import { authApi } from '../api/auth.api';
 import { jobseekerApi } from '../api/jobseeker.api';
-
+import { checkUpdateRequired } from '../utils/versionCheck';
+import { UpdateModal } from '../components/ui/UpdateModal';
 const navTheme = {
   ...DefaultTheme,
   colors: {
@@ -47,7 +49,10 @@ function RoleStack({ role }) {
 
 export function RootNavigator() {
   const navRef = useNavigationContainerRef();
-
+  const [settings, setSettings] = useState(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+    const [updateInfo, setUpdateInfo] = useState({ updateNeeded: false });
+  const [updateDismissed, setUpdateDismissed] = useState(false);
   const {
     isLoading,
     isAuthenticated,
@@ -61,6 +66,25 @@ export function RootNavigator() {
     bootstrap();
   }, []);
 
+   useEffect(() => {
+    if (settings) {
+      setUpdateInfo(checkUpdateRequired(settings));
+    }
+  }, [settings]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await adminApi.publicSettings();
+        setSettings(res);
+      } catch (e) {
+        console.log('Settings fetch failed:', e.message);
+        setSettings(null); // fail-open — maintenance block skip ho jayega agar API down ho
+      } finally {
+        setSettingsLoading(false);
+      }
+    })();
+  }, []);
   // 🔄 Check role whenever navigation state changes (i.e. user navigates
   // anywhere) instead of a fixed timer. Catches server-side role changes
   // (admin promotes user, KYC approval flips driver status, etc.) the
@@ -78,7 +102,7 @@ export function RootNavigator() {
 
       try {
         const res = await jobseekerApi.me(); // adjust to your actual "get current user" endpoint
-     
+
         const latestRole = res?.userId?.role || res?.role;
         const currentRole = useAuthStore.getState().user?.userId?.role;
 
@@ -115,9 +139,36 @@ export function RootNavigator() {
     return unsubscribe;
   }, [navRef]);
 
-  if (isLoading) {
+  if (isLoading || settingsLoading) {
     return <SplashScreen />;
   }
+
+  if (settings?.maintenance_mode) {
+    return <MaintenanceScreen settings={settings} />;
+  }
+    const showUpdateModal = updateInfo.updateNeeded && (updateInfo.forceUpdate || !updateDismissed);
+
+  return (
+    <>
+      <NavigationContainer
+        ref={navRef}
+        theme={navTheme}
+      >
+        {isAuthenticated ? (
+          <RoleStack key={currentRole} role={currentRole} />
+        ) : (
+          <AuthNavigator key="auth" />
+        )}
+      </NavigationContainer>
+
+      <UpdateModal
+        visible={showUpdateModal}
+        forceUpdate={updateInfo.forceUpdate}
+        storeUrl={updateInfo.storeUrl}
+        onDismiss={() => setUpdateDismissed(true)}
+      />
+    </>
+  );
 
   // 🔑 Resolved once, reused for both the render below and the `key`.
   const currentRole = user?.userId?.role || 'jobseeker';

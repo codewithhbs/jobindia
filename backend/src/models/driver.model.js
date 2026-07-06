@@ -34,7 +34,7 @@ const driverProfileSchema = new mongoose.Schema(
     panNumber: String,
     currentSalary: String,
     expectedSalary: String,
-isBikeAvailable: { type: Boolean, default: false },    vehicleCategories: [String],
+    isBikeAvailable: { type: Boolean, default: false }, vehicleCategories: [String],
     dutyType: String,
     preferredCategories: [String],
     licenseNumber: String,

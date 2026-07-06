@@ -50,6 +50,7 @@ function MultiSelectField({ label, value = [], options, onChange, placeholder = 
     setTempValue((arr) => (arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]));
   };
 
+
   const confirm = () => {
     onChange(tempValue);
     setVisible(false);
@@ -211,7 +212,11 @@ export default function DriverProfileScreen({ navigation, route }) {
 
   const toggleVehicleCategory = (v) =>
     setVehicleCategories((arr) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]));
+  const allVehicleCategorySelected = VEHICLE_CATEGORIES.every((c) => vehicleCategories.includes(c.value));
 
+  const toggleAllVehicleCategories = () => {
+    setVehicleCategories(allVehicleCategorySelected ? [] : VEHICLE_CATEGORIES.map((c) => c.value));
+  };
   const pickDoc = async (docId) => {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
     if (res.canceled) return;
@@ -222,8 +227,9 @@ export default function DriverProfileScreen({ navigation, route }) {
     setAvailable(val);
     try { await driverApi.setAvailability(val); } catch (e) { setAvailable(!val); toast.error('Error', e.message); }
   };
-
   const missingDocs = DOCS.filter((d) => {
+    if (d.id === 'pan_card') return false; // PAN Card optional
+
     const existing = profile?.documents?.find((x) => x.fieldId === d.id);
     return !docs[d.id] && !existing;
   });
@@ -232,10 +238,7 @@ export default function DriverProfileScreen({ navigation, route }) {
       toast.error('Aadhar Number required', 'Please enter your Aadhar number');
       return;
     }
-    if (!form.panNumber.trim()) {
-      toast.error('Pan Number required', 'Please enter your Pan number');
-      return;
-    }
+
     if (!form.licenseNumber.trim()) {
       toast.error('Licence Number required', 'Please enter your Licence number');
       return;
@@ -261,7 +264,9 @@ export default function DriverProfileScreen({ navigation, route }) {
     try {
       const fd = new FormData();
       fd.append('aadharNumber', form.aadharNumber);
-      fd.append('panNumber', form.panNumber);
+      if (form.panNumber.trim()) {
+        fd.append('panNumber', form.panNumber);
+      }
       fd.append('licenseNumber', form.licenseNumber);
       fd.append('yearsOfExperience', form.experience || '0');
       fd.append('currentSalary', form.currentSalary || '0');
@@ -326,7 +331,8 @@ export default function DriverProfileScreen({ navigation, route }) {
             {VEHICLES.map((v) => <Chip key={v} label={v} active={vehicleTypes.includes(v)} onPress={() => toggleVehicle(v)} />)}
           </View> */}
           <Input label="Aadhar Number" placeholder="1234 456789 1234" value={form.aadharNumber} onChangeText={set('aadharNumber')} autoCapitalize="characters" />
-          <Input label="Pan Number" placeholder="AWERT1365E" value={form.panNumber} onChangeText={set('panNumber')} />
+          <Input label="Pan Number (Optional)"
+            placeholder="AWERT1365E" value={form.panNumber} onChangeText={set('panNumber')} />
           <Input label="Licence Number" value={form.licenseNumber} onChangeText={set('licenseNumber')} autoCapitalize="characters" />
           <Input label="Current Salery" keyboardType="number-pad" value={form.currentSalary} onChangeText={set('currentSalary')} />
           <Input label="Expected Salary" keyboardType="number-pad" value={form.expectedSalary} onChangeText={set('expectedSalary')} />
@@ -337,6 +343,11 @@ export default function DriverProfileScreen({ navigation, route }) {
         <Card style={{ gap: SPACING.md }}>
           <Text style={styles.sectionTitle}>Vehicle Category</Text>
           <View style={styles.chips}>
+            <Chip
+              label="All"
+              active={allVehicleCategorySelected}
+              onPress={toggleAllVehicleCategories}
+            />
             {VEHICLE_CATEGORIES.map((c) => (
               <Chip
                 key={c.value}

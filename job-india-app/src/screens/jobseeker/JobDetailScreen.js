@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Share, StyleSheet, Pressable, Linking, Platform } from 'react-native';
+import { View, Text, ScrollView, Share, StyleSheet, Pressable, Linking, Platform, Modal, TextInput, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,19 +19,8 @@ import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/authStore';
 import { useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-const DEFAULT_SUPPORT_NUMBER = '+911234567890'; // ✅ apna default support number daal de
+import { adminApi } from '../../api/admin.api';
 
-const APP_LINKS = {
-  android: 'https://play.google.com/store/apps/details?id=com.yourcompany.krishnajobs',
-  ios: 'https://apps.apple.com/app/idXXXXXXXXX',
-  web: 'https://jobapi.adsdigitalmedia.com', // fallback agar web bhi hai
-};
-
-const getAppLink = (jobId) => {
-  if (Platform.OS === 'android') return `${APP_LINKS.android}`;
-  if (Platform.OS === 'ios') return `${APP_LINKS.ios}`;
-  return APP_LINKS.web;
-};
 function formatSalaryDisplay(salary) {
   if (!salary) return 'Not disclosed';
   if (salary.isHidden) return 'Not disclosed';
@@ -41,6 +30,33 @@ function formatSalaryDisplay(salary) {
   if (min && max) return `${symbol}${min.toLocaleString()} - ${symbol}${max.toLocaleString()} / ${period}`;
   if (min) return `${symbol}${min.toLocaleString()}+ / ${period}`;
   return `Up to ${symbol}${max.toLocaleString()} / ${period}`;
+}
+function workLocationLabel(v) {
+  const map = { work_from_office: 'Work From Office', field_job: 'Field Job', work_from_home: 'Work From Home' };
+  return map[v] || null;
+}
+function workLocationIcon(v) {
+  const map = { work_from_office: 'business-outline', field_job: 'walk-outline', work_from_home: 'home-outline' };
+  return map[v] || 'briefcase-outline';
+}
+function shiftLabel(v) {
+  const map = { day: 'Day Shift', night: 'Night Shift', rotational: 'Rotational', flexible: 'Flexible' };
+  return map[v] || null;
+}
+function workingDaysLabel(v) {
+  const map = { '5_days': '5 Days Working', '6_days': '6 Days Working' };
+  return map[v] || null;
+}
+function interviewTypeLabel(v) {
+  return v === 'telephonic' ? 'Telephonic' : v === 'in_person' ? 'In Person' : null;
+}
+function maritalLabel(v) {
+  const map = { married: 'Married', unmarried: 'Unmarried', both: 'Married / Unmarried' };
+  return map[v] || null;
+}
+function formatTimeDisplay(d) {
+  if (!d) return null;
+  return new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 function isWithinCallHours() {
   const hour = new Date().getHours();
@@ -67,6 +83,17 @@ function formatDateDisplay(d) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function isWithinCallWindow(job) {
+  if (!job?.callTimeStart || !job?.callTimeEnd) return true;
+  const now = new Date();
+  const start = new Date(job.callTimeStart);
+  const end = new Date(job.callTimeEnd);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const startMin = start.getHours() * 60 + start.getMinutes();
+  const endMin = end.getHours() * 60 + end.getMinutes();
+  return nowMin >= startMin && nowMin < endMin;
+}
+
 // ── Days left/expired for expiry countdown ──
 function daysUntil(d) {
   if (!d) return null;
@@ -77,14 +104,15 @@ function daysUntil(d) {
   return Math.round((target - today) / 86400000);
 }
 
-const shareJob = async (job) => {
+const shareJob = async (job, settings) => {
   try {
     const skills = Array.isArray(job.skills) ? job.skills.join(', ') : '';
     const deadline = job.applicationDeadline
       ? new Date(job.applicationDeadline).toLocaleDateString('en-IN')
       : '';
 
-    const appLink = `https://play.google.com/store/apps/details?id=com.yourcompany.krishnajobs&jobId=${job._id}`;
+    const appLink = settings?.play_store_url || settings?.web_url || 'https://jobapi.adsdigitalmedia.com';
+    const appName = settings?.app_name || 'Kishan Job';
 
     const lines = [
       `🔹 ${job.title}`,
@@ -103,11 +131,10 @@ const shareJob = async (job) => {
       '',
       job.description ? job.description.slice(0, 300) : '',
       '',
-      `👉 Apply now on Kishan Job app: ${appLink}`,
+      `👉 Apply now on ${appName} app: ${appLink}`,
     ].filter(Boolean);
 
     const message = lines.join('\n');
-
     await Share.share({ message, title: job.title });
   } catch (e) {
     console.log('Share failed:', e.message);
@@ -131,14 +158,19 @@ export default function JobDetailScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const authUser = useAuthStore((s) => s.user);
   const { jobId } = route.params;
-
+  const { data: settings } = useFetch(() => adminApi.publicSettings())
   const { data: job, loading } = useFetch(() => jobsApi.get(jobId), [jobId]);
   const { data: profile, refetch } = useFetch(() => jobseekerApi.me(), [navigation]);
-  console.log(job)
-  // `profile` is the jobseeker doc itself (completeness, resume, etc live here).
-  // `account` is the embedded auth user (role, name, isProfileComplete, kyc fields live here).
+  const [reportVisible, setReportVisible] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [sendingReport, setSendingReport] = useState(false);
   const account = profile?.userId ?? authUser ?? null;
-
+  const callNumber = companyPhone || settings?.support_phone || '+911234567890';
+  const reportEmail = settings?.support_email || 'support@example.com';
+  const whatsappNumber = settings?.whatsapp_number || callNumber;
+  const appStoreUrl = Platform.OS === 'ios'
+    ? (settings?.app_store_url || '')
+    : (settings?.play_store_url || settings?.app_store_url || '');
   const [applying, setApplying] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
   const [applied, setApplied] = useState(false);
@@ -154,6 +186,37 @@ export default function JobDetailScreen({ route, navigation }) {
   const isKYCVerified = !!account?.isKYCVerified;
   const kycStatus = account?.kycStatus; // 'pending' | 'rejected' | 'approved'
 
+  const submitReport = async () => {
+    if (!reportReason.trim()) {
+      toast.error('Please describe the issue');
+      return;
+    }
+    setSendingReport(true);
+    try {
+      const subject = `Job Report: ${job.title} (ID: ${job._id})`;
+      const body =
+        `Job Title: ${job.title}\n` +
+        `Job ID: ${job._id}\n` +
+        `Company: ${job.companyName || job.employerProfile?.companyName || 'N/A'}\n\n` +
+        `Issue reported by user:\n${reportReason.trim()}`;
+
+      const url = `mailto:${reportEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      const supported = await Linking.canOpenURL(url);
+
+      if (supported) {
+        await Linking.openURL(url);
+        setReportVisible(false);
+        setReportReason('');
+        toast.success('Report opened in mail app');
+      } else {
+        toast.error('No email app found', `Please email us directly at ${REPORT_EMAIL}`);
+      }
+    } catch (e) {
+      toast.error('Could not open mail app', e.message);
+    } finally {
+      setSendingReport(false);
+    }
+  };
   useFocusEffect(
     useCallback(() => {
       refetch();
@@ -169,6 +232,19 @@ export default function JobDetailScreen({ route, navigation }) {
     );
   }
 
+  if (settings?.maintenance_mode) {
+    return (
+      <Screen>
+        <Header title="Job Details" onBack={() => navigation.goBack()} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.lg }}>
+          <Ionicons name="construct-outline" size={40} color={COLORS.textLight} />
+          <Text style={{ marginTop: 12, color: COLORS.textSecondary, textAlign: 'center' }}>
+            App is under maintenance. Please check back later.
+          </Text>
+        </View>
+      </Screen>
+    );
+  }
   const apply = async () => {
     setApplying(true);
     try {
@@ -311,25 +387,22 @@ export default function JobDetailScreen({ route, navigation }) {
   const companyPhone = ep.contactPerson?.phone || job.companyPhone;
 
   const hasCompany = !!(companyName || companyPhone);
-  const callNumber = companyPhone || DEFAULT_SUPPORT_NUMBER;
 
   const handleCall = () => {
-    if (!isWithinCallHours()) {
+    if (!callEnabled) {
       Alert.show({
         variant: 'warning',
         icon: 'time-outline',
         title: 'Call support closed',
-        message: 'Calling is available between 9:00 AM and 7:00 PM. Please try again during these hours, or message us on WhatsApp.',
+        message: `Calling is available between ${formatTimeDisplay(job.callTimeStart)} and ${formatTimeDisplay(job.callTimeEnd)}. Please try again during these hours, or message us on WhatsApp.`,
         buttons: [{ text: 'OK', style: 'cancel' }],
       });
       return;
     }
-    Linking.openURL(`tel:${callNumber}`).catch(() =>
-      toast.error('Could not open dialer')
-    );
+    Linking.openURL(`tel:${callNumber}`).catch(() => toast.error('Could not open dialer'));
   };
   const handleWhatsapp = async () => {
-    const phone = callNumber.replace(/\D/g, ""); // Remove spaces, +, etc.
+    const phone = whatsappNumber.replace(/\D/g, ""); // Remove spaces, +, etc.
     const url = `whatsapp://send?phone=91${phone}`;
 
     const supported = await Linking.canOpenURL(url);
@@ -352,7 +425,7 @@ export default function JobDetailScreen({ route, navigation }) {
     : (!!profile && !account?.isProfileComplete);
 
   const applyBusy = applying || uploadingResume;
-  const callEnabled = isWithinCallHours();
+  const callEnabled = isWithinCallWindow(job);
   return (
     <Screen edges={['top']} noPadding>
 
@@ -361,9 +434,14 @@ export default function JobDetailScreen({ route, navigation }) {
         title="Job Details"
         onBack={() => navigation.goBack()}
         right={
-          <Pressable onPress={() => shareJob(job)} hitSlop={8}>
-            <Ionicons name="share-social-outline" size={22} color={COLORS.text} />
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: SPACING.md, alignItems: 'center' }}>
+            <Pressable onPress={() => setReportVisible(true)} hitSlop={8}>
+              <Ionicons name="flag-outline" size={22} color={COLORS.danger || '#EF4444'} />
+            </Pressable>
+            <Pressable onPress={() => shareJob(job, settings)} hitSlop={8}>
+              <Ionicons name="share-social-outline" size={22} color={COLORS.text} />
+            </Pressable>
+          </View>
         }
       />
 
@@ -631,6 +709,63 @@ export default function JobDetailScreen({ route, navigation }) {
             </View>
           </Section>
         ) : null}
+        {(job.workLocationType || job.shiftTime || job.workingDays || job.interviewType || job.joiningFeeRequired != null || job.maritalStatus || job.callTimeStart) ? (
+          <Section title="Work Details">
+            {job.workLocationType ? (
+              <View style={styles.bullet}>
+                <Ionicons name={workLocationIcon(job.workLocationType)} size={16} color={COLORS.text} />
+                <Text style={styles.body}>{workLocationLabel(job.workLocationType)}</Text>
+              </View>
+            ) : null}
+
+
+
+
+            {job.shiftTime ? (
+              <View style={styles.bullet}>
+                <Ionicons name="moon-outline" size={16} color={COLORS.text} />
+                <Text style={styles.body}>{shiftLabel(job.shiftTime)}</Text>
+              </View>
+            ) : null}
+
+            {job.workingDays ? (
+              <View style={styles.bullet}>
+                <Ionicons name="calendar-number-outline" size={16} color={COLORS.text} />
+                <Text style={styles.body}>{workingDaysLabel(job.workingDays)}</Text>
+              </View>
+            ) : null}
+
+            {job.interviewType ? (
+              <View style={styles.bullet}>
+                <Ionicons name={job.interviewType === 'telephonic' ? 'call-outline' : 'people-outline'} size={16} color={COLORS.text} />
+                <Text style={styles.body}>Interview: {interviewTypeLabel(job.interviewType)}</Text>
+              </View>
+            ) : null}
+
+            {job.maritalStatus ? (
+              <View style={styles.bullet}>
+                <Ionicons name="heart-outline" size={16} color={COLORS.text} />
+                <Text style={styles.body}>Marital status: {maritalLabel(job.maritalStatus)}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.bullet}>
+              <Ionicons name={job.joiningFeeRequired ? 'alert-circle-outline' : 'shield-checkmark-outline'} size={16} color={job.joiningFeeRequired ? (COLORS.warning || '#F59E0B') : COLORS.success} />
+              <Text style={styles.body}>
+                {job.joiningFeeRequired ? job?.joiningFeeDescription : 'No joining fee or deposit required'}
+              </Text>
+            </View>
+
+            {job.callTimeStart && job.callTimeEnd ? (
+              <View style={styles.bullet}>
+                <Ionicons name="time-outline" size={16} color={COLORS.text} />
+                <Text style={styles.body}>
+                  Call between {formatTimeDisplay(job.callTimeStart)} – {formatTimeDisplay(job.callTimeEnd)}
+                </Text>
+              </View>
+            ) : null}
+          </Section>
+        ) : null}
 
         {/* ✅ Posting info — published / deadline / expiry dates together */}
         {/* <Section title="Posting Info">
@@ -666,6 +801,57 @@ export default function JobDetailScreen({ route, navigation }) {
           />
         </View>
       )}
+      <Modal visible={reportVisible} transparent animationType="fade" onRequestClose={() => setReportVisible(false)}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        >
+          <View style={reportStyles.backdrop}>
+            <View style={reportStyles.sheet}>
+              <View style={reportStyles.headerRow}>
+                <Ionicons name="flag" size={20} color={COLORS.danger || '#EF4444'} />
+                <Text style={reportStyles.title}>Report this job</Text>
+              </View>
+
+              <Text style={reportStyles.subText}>
+                Facing a scam, fake listing, or any other issue? Let us know and we'll look into it.
+              </Text>
+
+              <TextInput
+                value={reportReason}
+                onChangeText={setReportReason}
+                placeholder="Describe the issue..."
+                placeholderTextColor={COLORS.textLight}
+                multiline
+                numberOfLines={4}
+                style={reportStyles.input}
+              />
+
+              <View style={reportStyles.emailRow}>
+                <Ionicons name="mail-outline" size={16} color={COLORS.textLight} />
+                <Text style={reportStyles.emailText}>{reportEmail}</Text>
+              </View>
+
+              <View style={reportStyles.btnRow}>
+                <Pressable
+                  style={[reportStyles.btn, reportStyles.cancelBtn]}
+                  onPress={() => { setReportVisible(false); setReportReason(''); }}
+                >
+                  <Text style={reportStyles.cancelBtnText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={[reportStyles.btn, reportStyles.submitBtn]}
+                  onPress={submitReport}
+                  disabled={sendingReport}
+                >
+                  <Text style={reportStyles.submitBtnText}>{sendingReport ? 'Opening...' : 'Send Report'}</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </Screen>
   );
 }
@@ -786,4 +972,40 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderTopWidth: 1, borderTopColor: COLORS.border,
   },
+});
+
+const reportStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    padding: SPACING.lg,
+  },
+  sheet: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    gap: SPACING.md,
+  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  title: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.text },
+  subText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, lineHeight: 20 },
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.border || '#E2E8F0',
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.text,
+    minHeight: 90,
+    textAlignVertical: 'top',
+  },
+  emailRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  emailText: { fontSize: FONTS.sizes.xs, color: COLORS.textLight },
+  btnRow: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.xs },
+  btn: { flex: 1, paddingVertical: 12, borderRadius: RADIUS.md, alignItems: 'center' },
+  cancelBtn: { backgroundColor: COLORS.surfaceAlt || '#F1F5F9' },
+  cancelBtnText: { color: COLORS.textSecondary, fontWeight: '700' },
+  submitBtn: { backgroundColor: COLORS.danger || '#EF4444' },
+  submitBtnText: { color: '#fff', fontWeight: '700' },
 });

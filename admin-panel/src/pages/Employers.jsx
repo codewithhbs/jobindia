@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { API } from '../lib/api';
 import { useFetch } from './_useFetch';
@@ -8,7 +7,6 @@ import { Spinner, Table, Badge } from '../components/ui';
 const COLOR = { approved: 'success', pending: 'warning', rejected: 'danger', not_submitted: 'gray' };
 
 export default function Employers() {
-  const navigate = useNavigate();
   const { data, loading, refetch } = useFetch(() => API.employers.list({ limit: 50 }), []);
   const act = async (e, status) => {
     try { await API.employers.verify(e.userId?._id || e.userId, status); toast.success(`Employer ${status}`); refetch(); }
@@ -31,7 +29,6 @@ export default function Employers() {
               <td className="td"><Badge color={COLOR[e.verificationStatus] || 'gray'}>{e.verificationStatus}</Badge></td>
               <td className="td">
                 <div className="flex gap-2">
-                  <button onClick={() => navigate(`/employers/${e.userId?._id || e.userId}`)} className="btn-outline !py-1.5 !px-3 text-xs">Edit</button>
                   <button onClick={() => act(e, 'approved')} className="btn-primary !py-1.5 !px-3 text-xs">Approve</button>
                   <button onClick={() => act(e, 'rejected')} className="btn-danger !py-1.5 !px-3 text-xs">Reject</button>
                 </div>

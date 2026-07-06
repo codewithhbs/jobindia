@@ -14,18 +14,7 @@ import Plans from './pages/Plans';
 import Onboarding from './pages/Onboarding';
 import Faqs from './pages/Faqs';
 import Cms from './pages/Cms';
-import Analytics from './pages/Analytics';
-import Candidates from './pages/Candidates';
-import JobForm from './pages/JobForm';
-import EmployerDetail from './pages/EmployerDetail';
-import JobseekerDetail from './pages/JobseekerDetail';
 import Settings from './pages/Settings';
-import AllHomeSliders from './pages/AllHomeSliders';
-import CreateAndUpdateSliders from './pages/CreateAndUpdateSliders';
-import UserDetailDriver from './pages/UserDetailDriver';
-import UserDetailJobseeker from './pages/UserDetailJobseeker';
-import JobDetail from './pages/JobDetail';
-import AllRoles from './pages/AllRoles';
 
 export default function App() {
   return (
@@ -36,33 +25,16 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
-          <Route path="analytics" element={<Analytics />} />
           <Route path="users" element={<Users />} />
-
-          <Route path="/users/jobseeker/:id" element={<UserDetailJobseeker />} />
-          <Route path="/users/:id" element={<UserDetailDriver />} /> {/* driver + others fallback */}
           <Route path="employers" element={<Employers />} />
-          <Route path="employers/:userId" element={<EmployerDetail />} />
           <Route path="kyc" element={<Kyc />} />
           <Route path="jobs" element={<Jobs />} />
-          <Route path="jobs/new" element={<JobForm />} />
-          <Route path="jobs/:id/edit" element={<JobForm />} />
-          <Route path="jobs/:id/view" element={<JobDetail />} />
-
           <Route path="categories" element={<Categories />} />
           <Route path="broadcast" element={<Broadcast />} />
           <Route path="support" element={<Support />} />
           <Route path="onboarding" element={<Onboarding />} />
           <Route path="faqs" element={<Faqs />} />
           <Route path="cms" element={<Cms />} />
-          <Route path="candidates" element={<Candidates />} />
-          <Route path="candidates/:userId" element={<JobseekerDetail />} />
-          <Route path="home-sliders" element={<AllHomeSliders />} />
-          <Route path="home-sliders/create" element={<CreateAndUpdateSliders />} />
-          <Route path="home-sliders/edit/:id" element={<CreateAndUpdateSliders />} />
-
-
-          <Route path="roles" element={<AllRoles />} />
 
           {/* Superadmin-only */}
           <Route element={<ProtectedRoute roles={['superadmin']} />}>

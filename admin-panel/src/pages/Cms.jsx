@@ -1,36 +1,25 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus } from 'lucide-react';
 import { API } from '../lib/api';
 import { useFetch } from './_useFetch';
-import JoditEditor from 'jodit-react';
 import { Spinner, Modal, EmptyState, Badge } from '../components/ui';
 
 export default function Cms() {
   const { data, loading, refetch } = useFetch(() => API.cms.list(), []);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ slug: '', title: '', isActive: true });
+  const [form, setForm] = useState({ slug: '', title: '', content: '', isActive: true });
   const [busy, setBusy] = useState(false);
-  const editorKey = useRef(0);
-  const contentRef = useRef(''); // ✅ content ab state me nahi, ref me — re-render trigger nahi karega
 
   const start = (p) => {
-    editorKey.current += 1; // remount with fresh initial value
-    contentRef.current = p?.content || '';
-    setForm(p ? { slug: p.slug, title: p.title, isActive: p.isActive } : { slug: '', title: '', isActive: true });
+    setForm(p ? { slug: p.slug, title: p.title, content: p.content, isActive: p.isActive } : { slug: '', title: '', content: '', isActive: true });
     setOpen(true);
   };
-
   const save = async () => {
     if (!form.slug || !form.title) return toast.error('Slug & title required');
     setBusy(true);
-    try {
-      await API.cms.upsert({ ...form, content: contentRef.current }); // ✅ ref se latest content
-      toast.success('Saved');
-      setOpen(false);
-      refetch();
-    } catch (e) { toast.error(e.message); }
-    finally { setBusy(false); }
+    try { await API.cms.upsert(form); toast.success('Saved'); setOpen(false); refetch(); }
+    catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
 
   const pages = data || [];
@@ -64,15 +53,7 @@ export default function Cms() {
             <div><label className="label">Slug</label><input className="input" placeholder="about-us" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></div>
             <div><label className="label">Title</label><input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
           </div>
-          <div>
-            <label className="label">Content</label>
-            <JoditEditor
-              key={editorKey.current}
-              value={contentRef.current}
-              config={{ readonly: false, height: 320, toolbarButtonSize: 'small',  }}
-              onChange={(html) => { contentRef.current = html; }} // ✅ no setState, no re-render, no flicker
-            />
-          </div>
+          <div><label className="label">Content (HTML)</label><textarea className="input min-h-[160px] font-mono text-sm" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} /></div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-primary" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Active</label>
         </div>
       </Modal>

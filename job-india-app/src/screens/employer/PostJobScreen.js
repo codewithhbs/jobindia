@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Pressable,
   ActivityIndicator, Keyboard, Platform, Switch,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -72,6 +73,43 @@ const SKILL_OPTIONS = [
   'Loading/Unloading', 'Typing', 'Tally', 'Accounting', 'Teaching',
 ];
 
+const WORK_LOCATION_TYPES = [
+  { label: 'Work From Office', value: 'work_from_office', icon: 'business-outline' },
+  { label: 'Field Job', value: 'field_job', icon: 'walk-outline' },
+  { label: 'Work From Home', value: 'work_from_home', icon: 'home-outline' },
+];
+
+const SHIFT_TIMES = [
+  { label: 'Day', value: 'day' },
+  { label: 'Night', value: 'night' },
+  { label: 'Rotational', value: 'rotational' },
+  { label: 'Flexible', value: 'flexible' },
+];
+
+const WORKING_DAYS = [
+  { label: '5 Days Working', value: '5_days' },
+  { label: '6 Days Working', value: '6_days' },
+];
+
+const INTERVIEW_TYPES = [
+  { label: 'In Person', value: 'in_person', icon: 'people-outline' },
+  { label: 'Telephonic', value: 'telephonic', icon: 'call-outline' },
+];
+
+const MARITAL_OPTIONS = [
+  { label: 'Married', value: 'married' },
+  { label: 'Unmarried', value: 'unmarried' },
+  { label: 'Both', value: 'both' },
+];
+
+const defaultCallStart = () => { const d = new Date(); d.setHours(10, 0, 0, 0); return d; };
+const defaultCallEnd = () => { const d = new Date(); d.setHours(19, 0, 0, 0); return d; };
+
+function formatTime(d) {
+  if (!d) return 'Select time';
+  return new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
 const LICENSE_TYPES = ['LMV', 'MCWG', 'HMV', 'Commercial'];
 const VEHICLE_TYPES = ['bike', 'auto', 'car', 'van', 'truck'];
 
@@ -88,7 +126,15 @@ const EMPTY_FORM = {
 
   jobType: 'full_time',
   vacancies: '1',
-
+  workLocationType: 'work_from_office',
+  shiftTime: 'day',
+  workingDays: '6_days',
+  interviewType: 'in_person',
+  joiningFeeRequired: false,
+  joiningFeeDescription: '',
+  maritalStatus: 'both',
+  callTimeStart: defaultCallStart(),
+  callTimeEnd: defaultCallEnd(),
   salary: {
     min: '',
     max: '',
@@ -144,9 +190,23 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function IconChip({ label, icon, active, onPress }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[iconChipStyles.chip, active && iconChipStyles.chipActive]}
+    >
+      <Ionicons name={icon} size={16} color={active ? '#fff' : COLORS.textSecondary} />
+      <Text style={[iconChipStyles.text, active && iconChipStyles.textActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export function PostJobScreen({ navigation, route }) {
   const id = route?.params?.id;
   const editing = !!id;
+  const [showCallStartPicker, setShowCallStartPicker] = useState(false);
+  const [showCallEndPicker, setShowCallEndPicker] = useState(false);
 
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -231,7 +291,15 @@ export function PostJobScreen({ navigation, route }) {
           companyLogo: j.companyLogo || '',
           category: j.category?._id || j.category || '',
           subCategory: j.subCategory || '',
-
+          workLocationType: j.workLocationType || 'work_from_office',
+          shiftTime: j.shiftTime || 'day',
+          workingDays: j.workingDays || '6_days',
+          interviewType: j.interviewType || 'in_person',
+          joiningFeeRequired: !!j.joiningFeeRequired,
+          joiningFeeDescription: j.joiningFeeDescription || '',
+          maritalStatus: j.maritalStatus || 'both',
+          callTimeStart: j.callTimeStart ? new Date(j.callTimeStart) : defaultCallStart(),
+          callTimeEnd: j.callTimeEnd ? new Date(j.callTimeEnd) : defaultCallEnd(),
           jobType: j.jobType || 'full_time',
           vacancies: String(j.vacancies || 1),
 
@@ -389,6 +457,12 @@ export function PostJobScreen({ navigation, route }) {
     if (!form.title.trim()) return toast.error('Job title is required'), false;
     if (!form.description.trim()) return toast.error('Description is required'), false;
     if (!form.category) return toast.error('Please select a category'), false;
+    if (new Date(form.callTimeEnd) <= new Date(form.callTimeStart)) {
+      return toast.error('Call end time must be after start time'), false;
+    }
+    if (form.joiningFeeRequired && !form.joiningFeeDescription.trim()) {
+      return toast.error('Please describe the joining fee / deposit'), false;
+    }
     if (!form.location.isRemote && (!form.location.coordinates || form.location.coordinates.length < 2)) {
       return toast.error('Please select a valid address from suggestions'), false;
     }
@@ -437,7 +511,15 @@ export function PostJobScreen({ navigation, route }) {
         subCategory: form.subCategory,
         jobType: form.jobType,
         vacancies: Number(form.vacancies) || 1,
-
+        workLocationType: form.workLocationType,
+        shiftTime: form.shiftTime,
+        workingDays: form.workingDays,
+        interviewType: form.interviewType,
+        joiningFeeRequired: form.joiningFeeRequired,
+        joiningFeeDescription: form.joiningFeeRequired ? form.joiningFeeDescription.trim() : '',
+        maritalStatus: form.maritalStatus,
+        callTimeStart: form.callTimeStart,
+        callTimeEnd: form.callTimeEnd,
         location: {
           address: form.location.address,
           city: form.location.city,
@@ -546,7 +628,11 @@ export function PostJobScreen({ navigation, route }) {
           <Text style={[styles.stepLabel, step >= 2 && styles.stepLabelActive]}>Requirements & Schedule</Text>
         </View>
       </View>
-
+  <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.scroll}
@@ -558,7 +644,7 @@ export function PostJobScreen({ navigation, route }) {
             <Card style={styles.card}>
               <Text style={styles.sectionTitle}>Job Details</Text>
               <Input label="Job Title *" placeholder="e.g. Delivery Executive" value={form.title} onChangeText={set('title')} />
-             
+
               <Select
                 label="Category *"
                 value={form.category}
@@ -567,7 +653,7 @@ export function PostJobScreen({ navigation, route }) {
                 placeholder={categoriesLoading ? 'Loading categories...' : 'Select category'}
                 disabled={categoriesLoading}
               />
-              <Input label="Sub Category" placeholder="e.g. Two-wheeler delivery" value={form.subCategory} onChangeText={set('subCategory')} />
+              {/* <Input label="Sub Category" placeholder="e.g. Two-wheeler delivery" value={form.subCategory} onChangeText={set('subCategory')} /> */}
               <Select label="Job Type" value={form.jobType} options={JOB_TYPES} onChange={set('jobType')} />
               <Input
                 label="Description *"
@@ -596,7 +682,103 @@ export function PostJobScreen({ navigation, route }) {
                 <Switch value={form.salary.isHidden} onValueChange={setNested('salary', 'isHidden')} trackColor={{ true: COLORS.primary }} />
               </View>
             </Card>
+            <Card style={styles.card}>
+              <Text style={styles.sectionTitle}>Work Setup</Text>
 
+              <Text style={styles.label}>Work Location Type</Text>
+              <View style={styles.chips}>
+                {WORK_LOCATION_TYPES.map((w) => (
+                  <IconChip
+                    key={w.value}
+                    label={w.label}
+                    icon={w.icon}
+                    active={form.workLocationType === w.value}
+                    onPress={() => set('workLocationType')(w.value)}
+                  />
+                ))}
+              </View>
+
+              <Text style={styles.label}>Shift Time</Text>
+              <View style={styles.chips}>
+                {SHIFT_TIMES.map((s) => (
+                  <Chip key={s.value} label={s.label} active={form.shiftTime === s.value} onPress={() => set('shiftTime')(s.value)} />
+                ))}
+              </View>
+
+              <Text style={styles.label}>Working Days</Text>
+              <View style={styles.chips}>
+                {WORKING_DAYS.map((w) => (
+                  <Chip key={w.value} label={w.label} active={form.workingDays === w.value} onPress={() => set('workingDays')(w.value)} />
+                ))}
+              </View>
+
+              <Text style={styles.label}>Interview Type</Text>
+              <View style={styles.chips}>
+                {INTERVIEW_TYPES.map((it) => (
+                  <IconChip
+                    key={it.value}
+                    label={it.label}
+                    icon={it.icon}
+                    active={form.interviewType === it.value}
+                    onPress={() => set('interviewType')(it.value)}
+                  />
+                ))}
+              </View>
+
+           <View style={styles.switchRow}>
+                <Text style={styles.label}>Joining fee / deposit required</Text>
+                <Switch value={form.joiningFeeRequired} onValueChange={set('joiningFeeRequired')} trackColor={{ true: COLORS.primary }} />
+              </View>
+              {form.joiningFeeRequired && (
+                <Input
+                  label="Joining fee / deposit details *"
+                  placeholder="e.g. ₹500 refundable uniform deposit"
+                  value={form.joiningFeeDescription}
+                  onChangeText={set('joiningFeeDescription')}
+                  multiline
+                />
+              )}
+              <Text style={styles.label}>Marital Status</Text>
+              <View style={styles.chips}>
+                {MARITAL_OPTIONS.map((m) => (
+                  <Chip key={m.value} label={m.label} active={form.maritalStatus === m.value} onPress={() => set('maritalStatus')(m.value)} />
+                ))}
+              </View>
+
+              <Text style={styles.label}>Communication Preference — allow candidate to call between</Text>
+              <View style={styles.row}>
+                <Pressable style={[styles.dateBox, styles.flex1]} onPress={() => setShowCallStartPicker(true)}>
+                  <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+                  <Text style={styles.dateText}>{formatTime(form.callTimeStart)}</Text>
+                </Pressable>
+                <Pressable style={[styles.dateBox, styles.flex1]} onPress={() => setShowCallEndPicker(true)}>
+                  <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+                  <Text style={styles.dateText}>{formatTime(form.callTimeEnd)}</Text>
+                </Pressable>
+              </View>
+              {showCallStartPicker && (
+                <DateTimePicker
+                  value={form.callTimeStart ? new Date(form.callTimeStart) : defaultCallStart()}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, date) => {
+                    setShowCallStartPicker(Platform.OS === 'ios');
+                    if (date) set('callTimeStart')(date);
+                  }}
+                />
+              )}
+              {showCallEndPicker && (
+                <DateTimePicker
+                  value={form.callTimeEnd ? new Date(form.callTimeEnd) : defaultCallEnd()}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, date) => {
+                    setShowCallEndPicker(Platform.OS === 'ios');
+                    if (date) set('callTimeEnd')(date);
+                  }}
+                />
+              )}
+            </Card>
             <Card style={[styles.card, { zIndex: 20 }]}>
               <Text style={styles.sectionTitle}>Location</Text>
 
@@ -610,7 +792,7 @@ export function PostJobScreen({ navigation, route }) {
                 <>
                   <View style={styles.addressWrap}>
                     <Input
-                      label="Address"
+                      label="Location"
                       placeholder="Start typing area, locality..."
                       value={addressQuery}
                       onChangeText={onAddressChange}
@@ -654,7 +836,7 @@ export function PostJobScreen({ navigation, route }) {
                 <Input label="Min experience" keyboardType="number-pad" value={form.requirements.experience.min} onChangeText={setExperience('min')} containerStyle={styles.flex1} />
                 <Input label="Max experience" keyboardType="number-pad" value={form.requirements.experience.max} onChangeText={setExperience('max')} containerStyle={styles.flex1} />
               </View>
-              <Select label="Experience unit" value={form.requirements.experience.unit} options={EXPERIENCE_UNITS} onChange={setExperience('unit')} />
+              {/* <Select label="Experience unit" value={form.requirements.experience.unit} options={EXPERIENCE_UNITS} onChange={setExperience('unit')} /> */}
 
               <Select
                 label="Qualification"
@@ -791,6 +973,7 @@ export function PostJobScreen({ navigation, route }) {
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
@@ -910,4 +1093,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   stepLabelActive: { color: COLORS.text, fontWeight: '700' },
+});
+
+const iconChipStyles = StyleSheet.create({
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: RADIUS.full || 999,
+    borderWidth: 1,
+    borderColor: COLORS.border || '#E2E8F0',
+    backgroundColor: COLORS.surface || '#fff',
+  },
+  chipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  text: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textSecondary },
+  textActive: { color: '#fff' },
 });

@@ -36,6 +36,61 @@ const jobSchema = new mongoose.Schema({
     isRemote: { type: Boolean, default: false }
   },
 
+  workLocationType: {
+    type: String,
+    enum: ['work_from_office', 'field_job', 'work_from_home'],
+    default: 'work_from_office',
+  },
+
+  shiftTime: {
+    type: String,
+    enum: ['day', 'night', 'rotational', 'flexible'],
+    default: 'day',
+  },
+
+  workingDays: {
+    type: String,
+    enum: ['5_days', '6_days'],
+    default: '6_days',
+  },
+
+  interviewType: {
+    type: String,
+    enum: ['in_person', 'telephonic'],
+    default: 'in_person',
+  },
+
+  joiningFeeRequired: {
+    type: Boolean,
+    default: false,
+  },
+joiningFeeDescription:{
+    type: String,
+    defaukt:''
+},
+  maritalStatus: {
+    type: String,
+    enum: ['married', 'unmarried', 'both'],
+    default: 'both',
+  },
+
+  callTimeStart: {
+    type: Date,
+    default: () => {
+      const d = new Date();
+      d.setHours(10, 0, 0, 0);
+      return d;
+    },
+  },
+
+  callTimeEnd: {
+    type: Date,
+    default: () => {
+      const d = new Date();
+      d.setHours(19, 0, 0, 0);
+      return d;
+    },
+  },
   requirements: {
     experience: {
       min: { type: Number, default: 0 },

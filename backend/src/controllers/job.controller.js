@@ -70,6 +70,7 @@ exports.createJob = async (req, res, next) => {
       employerName,
       companyName,
       companyLogo,
+      joiningFeeDescription,
       category,
       subCategory,
       salary,
@@ -82,12 +83,19 @@ exports.createJob = async (req, res, next) => {
       benefits,
       tags,
       status,
+      workLocationType,
+      shiftTime,
+      workingDays,
+      interviewType,
+      joiningFeeRequired,
+      maritalStatus,
+      callTimeStart,
+      callTimeEnd,
       expiryDate,
       isFeatured,
       featuredUntil,
       featuredOrder
     } = req.body;
-    console.log(req.body)
     const { userId, role } = req.user;
 
     if (!["employer", "admin", "superadmin"].includes(role)) {
@@ -147,7 +155,7 @@ exports.createJob = async (req, res, next) => {
       }
     }
 
-     let longitude = null;
+    let longitude = null;
     let latitude = null;
 
     // Case 1: coordinates array
@@ -204,12 +212,12 @@ exports.createJob = async (req, res, next) => {
 
     const requirementsData = requirements
       ? {
-          ...requirements,
-          skills: toArray(requirements.skills),
-          languages: toArray(requirements.languages),
-          licenseType: Array.isArray(requirements.licenseType) ? requirements.licenseType : [],
-          vehicleType: Array.isArray(requirements.vehicleType) ? requirements.vehicleType : []
-        }
+        ...requirements,
+        skills: toArray(requirements.skills),
+        languages: toArray(requirements.languages),
+        licenseType: Array.isArray(requirements.licenseType) ? requirements.licenseType : [],
+        vehicleType: Array.isArray(requirements.vehicleType) ? requirements.vehicleType : []
+      }
       : undefined;
 
     const tagsData = toArray(tags);
@@ -234,11 +242,20 @@ exports.createJob = async (req, res, next) => {
       companyLogo: companyLogo || "",
       category,
       salary,
+      joiningFeeDescription,
       jobType,
       vacancies,
       requirements: requirementsData,
       dynamicFields,
       applicationDeadline,
+      workLocationType,
+      shiftTime,
+      workingDays,
+      interviewType,
+      joiningFeeRequired,
+      maritalStatus,
+      callTimeStart,
+      callTimeEnd,
       benefits: benefitsData,
       expiryDate,
       subCategory,
@@ -786,7 +803,6 @@ exports.getJob = async (req, res, next) => {
       applied,
       employerProfile: employerProfile || null,
     };
-
     res.json({
       success: true,
       data: jobData,
@@ -818,7 +834,6 @@ function isEqual(a, b) {
 exports.updateJob = async (req, res, next) => {
   try {
     const job = await Job.findById(req.params.id);
-
     if (!job) {
       throw new AppError("Job not found", 404);
     }
@@ -873,6 +888,46 @@ exports.updateJob = async (req, res, next) => {
       }
 
       updateData.location = locationData;
+    }
+    // ── Normalize & validate work-setup fields ──
+    const ENUM_CHECKS = {
+      workLocationType: ["work_from_office", "field_job", "work_from_home"],
+      shiftTime: ["day", "night", "rotational", "flexible"],
+      workingDays: ["5_days", "6_days"],
+      interviewType: ["in_person", "telephonic"],
+      maritalStatus: ["married", "unmarried", "both"],
+    };
+
+    for (const [field, allowed] of Object.entries(ENUM_CHECKS)) {
+      if (updateData[field] !== undefined && !allowed.includes(updateData[field])) {
+        return next(new AppError(`Invalid value for ${field}`, 400));
+      }
+    }
+
+    if (updateData.joiningFeeRequired !== undefined) {
+      updateData.joiningFeeRequired = Boolean(updateData.joiningFeeRequired);
+    }
+
+    if (updateData.callTimeStart !== undefined || updateData.callTimeEnd !== undefined) {
+      const start = updateData.callTimeStart !== undefined
+        ? new Date(updateData.callTimeStart)
+        : new Date(job.callTimeStart);
+      const end = updateData.callTimeEnd !== undefined
+        ? new Date(updateData.callTimeEnd)
+        : new Date(job.callTimeEnd);
+
+      if (updateData.callTimeStart !== undefined && Number.isNaN(start.getTime())) {
+        return next(new AppError("Valid callTimeStart is required", 400));
+      }
+      if (updateData.callTimeEnd !== undefined && Number.isNaN(end.getTime())) {
+        return next(new AppError("Valid callTimeEnd is required", 400));
+      }
+      if (end <= start) {
+        return next(new AppError("callTimeEnd must be after callTimeStart", 400));
+      }
+
+      if (updateData.callTimeStart !== undefined) updateData.callTimeStart = start;
+      if (updateData.callTimeEnd !== undefined) updateData.callTimeEnd = end;
     }
 
     // ── Normalize requirements: DEEP-MERGE with existing DB doc, never replace wholesale ──
@@ -1164,7 +1219,6 @@ exports.getJobApplications = async (req, res, next) => {
       profile: profileMap[(app.applicantId?._id || app.applicantId).toString()] || null,
     }));
 
-    console.log(enrichedApps)
 
     res.json({ success: true, data: enrichedApps, count: enrichedApps.length });
   } catch (error) {

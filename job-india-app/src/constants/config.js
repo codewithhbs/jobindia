@@ -5,9 +5,9 @@ import Constants from 'expo-constants';
 //  - iOS simulator    -> localhost works
 // Override via app.json -> expo.extra.apiUrl, or set EXPO_PUBLIC_API_URL.
 export const API_URL =
-  'http://192.168.1.12:4120/api/v1';
+  'https://jobapi.adsdigitalmedia.com/api/v1';
 export const BASE_API_URL =
-  'http://192.168.1.12:4120';
+  'https://jobapi.adsdigitalmedia.com';
 
 export const ROLES = {
   JOBSEEKER: 'jobseeker',
