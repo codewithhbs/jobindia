@@ -31,8 +31,12 @@ exports.upsertProfile = catchAsync(async (req, res) => {
     "preferredLocations",
     "expectedSalary",
     "noticePeriodDays",
-  ];
+    "dob",
+    "gender",
+    "maritalStatus",
 
+  ];
+  console.log(req.body)
   const jsonFields = [
     "skills",
     "experience",
@@ -84,9 +88,25 @@ exports.upsertProfile = catchAsync(async (req, res) => {
     profile.totalExperienceMonths = 0;
   }
 
-  profile.computeCompleteness();
-  await profile.save();
+  if (req.body.dob !== undefined) {
+    profile.dob = new Date(req.body.dob);
+  }
 
+  if (req.body.gender !== undefined) {
+    profile.gender = req.body.gender;
+  }
+
+  if (req.body.maritalStatus !== undefined) {
+    profile.maritalStatus = req.body.maritalStatus;
+  }
+  try {
+    profile.computeCompleteness();
+    await profile.save();
+  } catch (err) {
+    console.log(err);
+    console.log(err.errors);
+    throw err;
+  }
   const user = await User.findById(req.user.userId);
 
   if (user) {

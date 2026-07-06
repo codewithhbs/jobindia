@@ -22,6 +22,8 @@ const BASE_SERVER = 'https://jobapi.adsdigitalmedia.com';
 
 const FIELDS = [
   { key: 'name', label: 'Full Name', icon: 'person-outline', placeholder: 'Enter your name', keyboard: 'default', caps: 'words' },
+    { key: 'email', label: 'Email', icon: 'mail-outline', placeholder: 'Enter your email', keyboard: 'email-address', caps: 'none' },
+
   { key: 'city', label: 'City', icon: 'location-outline', placeholder: 'Enter city', keyboard: 'default', caps: 'words' },
   { key: 'state', label: 'Location', icon: 'map-outline', placeholder: 'Enter full address / location', keyboard: 'default', caps: 'sentences', multiline: true },
 ];
@@ -41,7 +43,7 @@ export default function BasicDetails({ navigation, route }) {
   const [coords, setCoords] = useState(null);
   const [deviceInfo, setDeviceInfo] = useState(null);
   const [pushToken, setPushToken] = useState(null);
-  const [form, setForm] = useState({ name: '', city: '', state: '' });
+  const [form, setForm] = useState({ name: '',email: '', city: '', state: '' });
 
   const isFocused = useRef(false);
 
@@ -57,6 +59,7 @@ export default function BasicDetails({ navigation, route }) {
       name: user.name || '',
       city: user.location?.city || '',
       state: user.location?.state || '',
+      email: user?.email || ''
     });
     if (user.avatar) {
       setAvatar({ uri: `${BASE_SERVER}${user.avatar.startsWith('/') ? '' : '/'}${user.avatar}` });
@@ -126,6 +129,12 @@ export default function BasicDetails({ navigation, route }) {
     }
   };
 
+useFocusEffect(
+  useCallback(() => {
+    fetchLocation();
+  }, [])
+);
+
   const pickImage = useCallback(() => {
     InteractionManager.runAfterInteractions(async () => {
       try {
@@ -180,6 +189,8 @@ export default function BasicDetails({ navigation, route }) {
       setSaving(true);
       const formData = new FormData();
       formData.append('name', form.name);
+      formData.append('email', form.email);
+
       if (pushToken) formData.append('fcmToken', pushToken);
 
       formData.append('location', JSON.stringify({
@@ -284,7 +295,7 @@ export default function BasicDetails({ navigation, route }) {
           ))}
 
           <View style={styles.locRow}>
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[styles.locBtn, locLoading && { opacity: 0.6 }]}
               onPress={fetchLocation}
               disabled={locLoading}
@@ -298,7 +309,7 @@ export default function BasicDetails({ navigation, route }) {
               <Text style={styles.locBtnText}>
                 {locLoading ? 'Fetching...' : coords ? 'Location fetched ✓' : 'Use my location'}
               </Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             {coords && (
               <Text style={styles.coordsText}>

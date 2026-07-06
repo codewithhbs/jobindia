@@ -28,7 +28,7 @@ export function LoginScreen({ navigation }) {
   const { data: setting } = useFetch(() => adminApi.publicSettings(), []);
   const { data: roleOptionsData, loading: roleOptionsLoading } = useFetch(() => adminApi.roleOptions(), []);
 
-  const appName = setting?.app_name || 'Kishan Solution';
+  const appName = setting?.app_name || 'Kishan Solutions';
   const appLogo = setting?.app_logo;
   const brandColor = setting?.primary_color || COLORS.primary;
 

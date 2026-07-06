@@ -15,17 +15,47 @@ import { notificationsApi } from '../../api/notifications.api';
 
 // ---- "Why us" trust section, India-app style ----
 const TRUST_ITEMS = [
-  { id: '1', icon: 'shield-checkmark', title: '100% Verified', desc: 'Har company manually verify hoti hai', color: COLORS.primary, bg: COLORS.primaryLight },
-  { id: '2', icon: 'flash', title: 'Apply in 1 Tap', desc: 'Bina form bhare, instant apply karo', color: COLORS.accent, bg: COLORS.warningLight },
-  { id: '3', icon: 'location', title: 'Pan-India Jobs', desc: 'Chhote shehar se metro tak, sab jagah', color: COLORS.secondary, bg: COLORS.secondaryLight },
-  { id: '4', icon: 'wallet', title: 'Hamesha Free', desc: 'Job dhundna kabhi paid nahi hoga', color: COLORS.success, bg: COLORS.successLight },
+  {
+    id: '1',
+    icon: 'shield-checkmark',
+    title: '100% Verified',
+    desc: 'Every employer is manually verified for your safety.',
+    color: COLORS.primary,
+    bg: COLORS.primaryLight,
+  },
+  {
+    id: '2',
+    icon: 'flash',
+    title: 'One-Tap Apply',
+    desc: 'Apply instantly without filling out long forms.',
+    color: COLORS.accent,
+    bg: COLORS.warningLight,
+  },
+  {
+    id: '3',
+    icon: 'location',
+    title: 'Jobs Across India',
+    desc: 'Discover opportunities in small towns and metro cities alike.',
+    color: COLORS.secondary,
+    bg: COLORS.secondaryLight,
+  },
+  {
+    id: '4',
+    icon: 'wallet',
+    title: 'Always Free',
+    desc: 'Finding your next job will never cost you anything.',
+    color: COLORS.success,
+    bg: COLORS.successLight,
+  },
 ];
 
 function WhyUsSection() {
   return (
     <View style={styles.whyWrap}>
-      <Text style={styles.sectionTitle}>Kyu chunein humein?</Text>
-      <Text style={styles.sectionSub}>Banaya gaya hai job seekers ke liye, unki hi zaroorat samajh kar</Text>
+      <Text style={styles.sectionTitle}>Why Choose Us?</Text>
+      <Text style={styles.sectionSub}>
+        Built for job seekers with features that make finding your next opportunity faster and easier.
+      </Text>
       <View style={styles.whyGrid}>
         {TRUST_ITEMS.map((item) => (
           <View key={item.id} style={styles.whyCard}>

@@ -20,7 +20,7 @@ import { Badge, Card, Input } from '../../components/ui';
 import { EDUCATION_LEVELS, JOB_TYPES } from '../../constants/config';
 import { useAuthStore } from '../../store/authStore';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-
+import DateTimePicker from '@react-native-community/datetimepicker';
 const AVAILABILITY_OPTIONS = [
   { value: 'immediate', label: 'Immediate' },
   { value: '15_days', label: '15 days' },
@@ -36,13 +36,16 @@ export default function EditProfileScreen({ route }) {
   const { data: profile, loading } = useFetch(() => jobseekerApi.me(), []);
   const { data: categories } = useFetch(() => adminApi.categories(), []);
   const logout = useAuthStore((s) => s.logout);
-
+  const [showDobPicker, setShowDobPicker] = useState(false);
   const [form, setForm] = useState({
     headline: '', about: '',
     skills: [], languages: [], certifications: [], preferredLocations: [],
     expYears: '', expMonths: '',
     currentSalary: '', expMin: '', expMax: '',
     isFresher: false,
+    dob: null,
+    gender: '',
+    maritalStatus: '',
     noticePeriodDays: '', availability: 'immediate',
     preferredJobTypes: [], preferredCategories: [],
     isOpenToWork: true, willingToRelocate: false,
@@ -67,6 +70,9 @@ export default function EditProfileScreen({ route }) {
       currentSalary: profile.currentSalary ? String(profile.currentSalary) : '',
       expMin: String(profile.expectedSalary?.min || ''), expMax: String(profile.expectedSalary?.max || ''),
       noticePeriodDays: String(profile.noticePeriodDays ?? ''),
+      dob: profile.dob ? new Date(profile.dob) : null,
+      gender: profile.gender || '',
+      maritalStatus: profile.maritalStatus || '',
       availability: profile.availability || 'immediate',
       isFresher: profile.isFresher ?? false,
       preferredJobTypes: profile.preferredJobTypes || [],
@@ -86,7 +92,6 @@ export default function EditProfileScreen({ route }) {
     ...f,
     [k]: f[k].includes(value) ? f[k].filter((v) => v !== value) : [...f[k], value],
   }));
-  console.log(form?.preferredLocations)
   const save = async () => {
     setSaving(true);
     try {
@@ -103,6 +108,9 @@ export default function EditProfileScreen({ route }) {
         noticePeriodDays: Number(form.noticePeriodDays) || 0,
         availability: form.availability,
         preferredJobTypes: form.preferredJobTypes,
+        dob: form.dob,
+        gender: form.gender,
+        maritalStatus: form.maritalStatus,
         preferredCategories: form.preferredCategories,
       });
       toast.success('Saved', 'Profile updated');
@@ -183,7 +191,151 @@ export default function EditProfileScreen({ route }) {
             </View>
           </View>
         )}
+        <Card style={{ gap: SPACING.md }}>
+          <Text style={styles.sectionTitle}>Basic Details</Text>
 
+          {/* DOB */}
+          <Text style={styles.fieldLabel}>Date of Birth</Text>
+
+          <Pressable
+            style={styles.pickerTrigger}
+            onPress={() => setShowDobPicker(true)}
+          >
+            <Ionicons
+              name="calendar-outline"
+              size={18}
+              color={COLORS.primary}
+            />
+
+            <Text style={styles.pickerTriggerText}>
+              {form.dob
+                ? form.dob.toLocaleDateString()
+                : "Select Date of Birth"}
+            </Text>
+          </Pressable>
+
+          {showDobPicker && (
+            <DateTimePicker
+              value={form.dob || new Date(2000, 0, 1)}
+              mode="date"
+              display="default"
+              maximumDate={new Date()}
+              onChange={(event, date) => {
+                setShowDobPicker(false);
+                if (date) set("dob")(date);
+              }}
+            />
+          )}
+
+          {/* Gender */}
+          <Text style={styles.fieldLabel}>Gender</Text>
+
+          <View style={styles.chipsRow}>
+            {[
+              {
+                label: "Male",
+                value: "male",
+                icon: "male-outline",
+              },
+              {
+                label: "Female",
+                value: "female",
+                icon: "female-outline",
+              },
+              {
+                label: "Other",
+                value: "other",
+                icon: "transgender-outline",
+              },
+            ].map((item) => (
+              <Pressable
+                key={item.value}
+                onPress={() => set("gender")(item.value)}
+                style={[
+                  styles.chip,
+                  form.gender === item.value && styles.chipActive,
+                  {
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={item.icon}
+                  size={18}
+                  color={
+                    form.gender === item.value
+                      ? COLORS.primary
+                      : COLORS.textSecondary
+                  }
+                />
+                <Text
+                  style={[
+                    styles.chipText,
+                    form.gender === item.value &&
+                    styles.chipTextActive,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Marital Status */}
+          <Text style={styles.fieldLabel}>Marital Status</Text>
+
+          <View style={styles.chipsRow}>
+            {[
+              {
+                label: "Single",
+                value: "single",
+                icon: "person-outline",
+              },
+              {
+                label: "Married",
+                value: "married",
+                icon: "people-outline",
+              },
+            ].map((item) => (
+              <Pressable
+                key={item.value}
+                onPress={() => set("maritalStatus")(item.value)}
+                style={[
+                  styles.chip,
+                  form.maritalStatus === item.value &&
+                  styles.chipActive,
+                  {
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={item.icon}
+                  size={18}
+                  color={
+                    form.maritalStatus === item.value
+                      ? COLORS.primary
+                      : COLORS.textSecondary
+                  }
+                />
+
+                <Text
+                  style={[
+                    styles.chipText,
+                    form.maritalStatus === item.value &&
+                    styles.chipTextActive,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Card>
         <Card style={{ gap: SPACING.md }}>
           <Text style={styles.sectionTitle}>Skills & Languages</Text>
           <TagsField label="Skills" placeholder="e.g. React" values={form.skills} onChange={set('skills')} />

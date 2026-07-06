@@ -88,6 +88,19 @@ const jobSeekerProfileSchema = new mongoose.Schema(
       uploadedAt: Date,
     },
 
+    dob: {
+      type: Date,
+    },
+
+    gender: {
+      type: String,
+      enum: ["male", "female", "other"],
+    },
+
+    maritalStatus: {
+      type: String,
+      enum: ["single", "married"],
+    },
     // ── Education / Experience / Skills ──
     education: [educationSchema],
     experience: [experienceSchema],

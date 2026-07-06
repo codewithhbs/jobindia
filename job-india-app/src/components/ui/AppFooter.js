@@ -43,9 +43,9 @@ export default function AppFooter({ refreshing }) {
 
   const cmsPages = (cmsData || []).filter((p) => p.isActive);
   const socials = buildSocialLinks(setting);
-  const app_logo = setting?.app_logo || 'Kishan Solution';
+  const app_logo = setting?.app_logo || 'Kishan Solutions';
 
-  const appName = setting?.app_name || 'Kishan Solution';
+  const appName = setting?.app_name || 'Kishan Solutions';
   const brandColor = setting?.primary_color || COLORS.primary;
   const supportEmail = setting?.support_email;
   const supportPhone = setting?.support_phone;

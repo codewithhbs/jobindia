@@ -65,7 +65,7 @@ export function OnboardingScreen({ navigation }) {
         />
       ) : (
         <Text style={[styles.onboardingLogoText, { top: insets.top + SPACING.md }]}>
-          {settings?.app_name || 'Kishan Solution'}
+          {settings?.app_name || 'Kishan Solutions'}
         </Text>
       )}
 
@@ -130,7 +130,7 @@ export function SplashScreen() {
             resizeMode="contain"
           />
         ) : (
-          <Text style={styles.splashLogo}>{settings?.app_name || 'Kishan Solution'}</Text>
+          <Text style={styles.splashLogo}>{settings?.app_name || 'Kishan Solutions'}</Text>
         )}
        
       </View>
