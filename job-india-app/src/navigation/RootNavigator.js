@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+
 import {
   NavigationContainer,
   DefaultTheme,
@@ -16,10 +17,10 @@ import { useAuthStore } from '../store/authStore';
 import { ROLES } from '../constants/config';
 import { attachNotificationListeners } from '../services/notifications';
 import { COLORS } from '../constants/theme';
-import { authApi } from '../api/auth.api';
 import { jobseekerApi } from '../api/jobseeker.api';
 import { checkUpdateRequired } from '../utils/versionCheck';
 import { UpdateModal } from '../components/ui/UpdateModal';
+
 const navTheme = {
   ...DefaultTheme,
   colors: {
@@ -51,22 +52,18 @@ export function RootNavigator() {
   const navRef = useNavigationContainerRef();
   const [settings, setSettings] = useState(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
-    const [updateInfo, setUpdateInfo] = useState({ updateNeeded: false });
+  const [updateInfo, setUpdateInfo] = useState({ updateNeeded: false });
   const [updateDismissed, setUpdateDismissed] = useState(false);
-  const {
-    isLoading,
-    isAuthenticated,
-    role,
-    user,
-    bootstrap,
-  } = useAuthStore();
 
+  // 🔑 role SIRF store se — checkRole isi ko update karta hai, live rehta hai
+  const { isLoading, isAuthenticated, user, bootstrap } = useAuthStore();
+  const currentRole = user?.userId?.role || ROLES.JOB_SEEKER;
 
   useEffect(() => {
     bootstrap();
   }, []);
 
-   useEffect(() => {
+  useEffect(() => {
     if (settings) {
       setUpdateInfo(checkUpdateRequired(settings));
     }
@@ -85,15 +82,12 @@ export function RootNavigator() {
       }
     })();
   }, []);
-  // 🔄 Check role whenever navigation state changes (i.e. user navigates
-  // anywhere) instead of a fixed timer. Catches server-side role changes
-  // (admin promotes user, KYC approval flips driver status, etc.) the
-  // moment the user moves around the app — no logout/login needed.
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
     let lastCheckedAt = 0;
-    const MIN_GAP_MS = 5000; // don't re-check more than once every 5s even if nav fires rapidly
+    const MIN_GAP_MS = 5000;
 
     const checkRole = async () => {
       const now = Date.now();
@@ -101,12 +95,12 @@ export function RootNavigator() {
       lastCheckedAt = now;
 
       try {
-        const res = await jobseekerApi.me(); // adjust to your actual "get current user" endpoint
+        const res = await jobseekerApi.me();
 
         const latestRole = res?.userId?.role || res?.role;
-        const currentRole = useAuthStore.getState().user?.userId?.role;
+        const currRole = useAuthStore.getState().user?.userId?.role;
 
-        if (latestRole && latestRole !== currentRole) {
+        if (latestRole && latestRole !== currRole) {
           useAuthStore.setState((s) => ({
             user: { ...s.user, userId: { ...s.user?.userId, role: latestRole } },
           }));
@@ -116,7 +110,6 @@ export function RootNavigator() {
       }
     };
 
-    // Run once immediately on auth, then on every navigation state change.
     checkRole();
     const unsubscribe = navRef.addListener?.('state', checkRole);
 
@@ -146,14 +139,13 @@ export function RootNavigator() {
   if (settings?.maintenance_mode) {
     return <MaintenanceScreen settings={settings} />;
   }
-    const showUpdateModal = updateInfo.updateNeeded && (updateInfo.forceUpdate || !updateDismissed);
+
+  const showUpdateModal =
+    updateInfo.updateNeeded && (updateInfo.forceUpdate || !updateDismissed);
 
   return (
     <>
-      <NavigationContainer
-        ref={navRef}
-        theme={navTheme}
-      >
+      <NavigationContainer ref={navRef} theme={navTheme}>
         {isAuthenticated ? (
           <RoleStack key={currentRole} role={currentRole} />
         ) : (
@@ -168,30 +160,6 @@ export function RootNavigator() {
         onDismiss={() => setUpdateDismissed(true)}
       />
     </>
-  );
-
-  // 🔑 Resolved once, reused for both the render below and the `key`.
-  const currentRole = user?.userId?.role || 'jobseeker';
-
-  return (
-    <NavigationContainer
-      ref={navRef}
-      theme={navTheme}
-    >
-      {isAuthenticated ? (
-        // key=currentRole forces React to fully unmount the previous role's
-        // navigator (JobSeekerNavigator/DriverNavigator/EmployerNavigator)
-        // and mount a brand new one instead of reconciling in place.
-        // Without this, switching jobseeker -> logout -> driver reuses the
-        // old navigator's internal navigation state (same route names =
-        // React treats it as "the same tree, just re-rendered"), so stale
-        // screens/params survive until a full app restart clears them.
-        <RoleStack key={currentRole} role={currentRole} />
-      ) : (
-        <AuthNavigator key="auth" />
-      )}
-
-    </NavigationContainer>
   );
 }
 
