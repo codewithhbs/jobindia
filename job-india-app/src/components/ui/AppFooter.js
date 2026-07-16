@@ -76,21 +76,27 @@ export default function AppFooter({ refreshing }) {
       {/* ── Brand row ── */}
       <View style={styles.footerTop}>
         <View style={styles.footerBrandRow}>
-          <View style={[styles.footerLogo]}>
+          <LinearGradient
+            colors={[brandColor, `${brandColor}CC`]}
+            style={styles.footerLogoGradient}
+          >
             {app_logo ? (
               <Image
                 source={{ uri: app_logo }}
-                style={{ width: 40, height: 40, resizeMode: 'contain' }}
+                style={{ width: 34, height: 34, resizeMode: 'contain', borderRadius: 8 }}
               />
             ) : (
-              <Ionicons name="briefcase" size={18} color={COLORS.white} />
+              <Ionicons name="briefcase" size={20} color={COLORS.white} />
             )}
-          </View>
-          <View>
-            
-            <Text style={styles.footerBrand}>{appName}</Text>
-            <View style={styles.taglineRow}>
+          </LinearGradient>
 
+          <View style={styles.footerBrandTextWrap}>
+            <View style={styles.brandNameRow}>
+              <Text style={styles.footerBrand}>{appName}</Text>
+              <View style={[styles.brandDot, { backgroundColor: brandColor }]} />
+            </View>
+            <View style={styles.taglineRow}>
+              <View style={[styles.taglineAccent, { backgroundColor: brandColor }]} />
               <Text style={styles.footerTagline}>आपकी सफलता हमारा लक्ष्य</Text>
             </View>
           </View>
@@ -213,5 +219,36 @@ const styles = StyleSheet.create({
   flagChakra: {
     width: 4, height: 4, borderRadius: 2,
     borderWidth: 0.5, borderColor: '#000088',
+  },
+  footerLogoGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  footerBrandTextWrap: {
+    gap: 3,
+  },
+  brandNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  brandDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  taglineAccent: {
+    width: 3,
+    height: 12,
+    borderRadius: 2,
+    marginRight: 2,
   },
 });
