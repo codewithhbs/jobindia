@@ -368,7 +368,7 @@ export default function EditProfileScreen({ route }) {
             <Input label="Expected min ₹/mo" placeholder="25000" keyboardType="number-pad" value={form.expMin} onChangeText={set('expMin')} containerStyle={{ flex: 1 }} />
             <Input label="Expected max ₹/mo" placeholder="40000" keyboardType="number-pad" value={form.expMax} onChangeText={set('expMax')} containerStyle={{ flex: 1 }} />
           </View>
-          <Text style={styles.fieldLabel}>Availability</Text>
+          <Text style={styles.fieldLabel}>Notice Period</Text>
           <View style={styles.chipsRow}>
             {AVAILABILITY_OPTIONS.map((o) => (
               <SelectChip key={o.value} label={o.label} active={form.availability === o.value} onPress={() => set('availability')(o.value)} />

@@ -334,7 +334,7 @@ export default function DriverProfileScreen({ navigation, route }) {
           <Input label="Pan Number (Optional)"
             placeholder="AWERT1365E" value={form.panNumber} onChangeText={set('panNumber')} />
           <Input label="Licence Number" value={form.licenseNumber} onChangeText={set('licenseNumber')} autoCapitalize="characters" />
-          <Input label="Current Salery" keyboardType="number-pad" value={form.currentSalary} onChangeText={set('currentSalary')} />
+          <Input label="Current Salary" keyboardType="number-pad" value={form.currentSalary} onChangeText={set('currentSalary')} />
           <Input label="Expected Salary" keyboardType="number-pad" value={form.expectedSalary} onChangeText={set('expectedSalary')} />
 
           <Input label="Experience (years)" keyboardType="number-pad" value={form.experience} onChangeText={set('experience')} />

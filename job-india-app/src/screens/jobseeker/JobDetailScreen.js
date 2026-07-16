@@ -71,8 +71,9 @@ function formatLocationDisplay(location) {
 
 function experienceLabel(exp) {
   if (!exp) return 'Any experience';
-  const { min, max, unit = 'years' } = exp;
-  if (!min && !max) return 'Fresher welcome';
+  const { min, max, unit = 'years', isFresher } = exp;
+  if (isFresher) return 'Fresher';           // ✅ new
+  if (!min && !max) return 'Fresher';
   if (min && max) return `${min}–${max} ${unit} experience`;
   if (min) return `${min}+ ${unit} experience`;
   return `Up to ${max} ${unit} experience`;
@@ -607,6 +608,15 @@ export default function JobDetailScreen({ route, navigation }) {
           <Stat icon="briefcase-outline" label="Experience" value={experienceLabel(req.experience)} />
         </View>
 
+        {job.salary?.incentiveAvailable ? (
+          <View style={styles.incentiveNotice}>
+            <Ionicons name="trending-up-outline" size={16} color={COLORS.success} />
+            <Text style={styles.incentiveNoticeText}>
+              Incentive available{job.salary?.incentiveDescription ? `: ${job.salary.incentiveDescription}` : ''}
+            </Text>
+          </View>
+        ) : null}
+
         <Section title="Job Description">
           <Text style={styles.body}>{job.description}</Text>
         </Section>
@@ -953,6 +963,13 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
   },
   freeNoticeText: { fontSize: FONTS.sizes.xs, fontWeight: '700', color: COLORS.success, flex: 1 },
+  incentiveNotice: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    backgroundColor: `${COLORS.success}14`,
+    borderRadius: RADIUS.md, borderWidth: 1, borderColor: `${COLORS.success}33`,
+    padding: SPACING.sm,
+  },
+  incentiveNoticeText: { fontSize: FONTS.sizes.xs, fontWeight: '700', color: COLORS.success, flex: 1 },
   section: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,

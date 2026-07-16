@@ -142,6 +142,8 @@ const EMPTY_FORM = {
     period: 'monthly',
     isNegotiable: false,
     isHidden: false,
+    incentiveAvailable: false,        // ✅ new
+    incentiveDescription: '',         // ✅ new
   },
 
   location: {
@@ -155,7 +157,7 @@ const EMPTY_FORM = {
   },
 
   requirements: {
-    experience: { min: '0', max: '', unit: 'years' },
+    experience: { min: '0', max: '', unit: 'years', isFresher: false },
     qualification: '',
     education: '',
     skills: [],      // array now — chip multi-select
@@ -310,6 +312,8 @@ export function PostJobScreen({ navigation, route }) {
             period: j.salary?.period || 'monthly',
             isNegotiable: !!j.salary?.isNegotiable,
             isHidden: !!j.salary?.isHidden,
+            incentiveAvailable: !!j.salary?.incentiveAvailable,          // ✅ new
+            incentiveDescription: j.salary?.incentiveDescription || '',  // ✅ new
           },
 
           location: {
@@ -327,6 +331,7 @@ export function PostJobScreen({ navigation, route }) {
               min: j.requirements?.experience?.min != null ? String(j.requirements.experience.min) : '0',
               max: j.requirements?.experience?.max != null ? String(j.requirements.experience.max) : '',
               unit: j.requirements?.experience?.unit || 'years',
+              isFresher: !!j.requirements?.experience?.isFresher,   // ✅ new
             },
             qualification: j.requirements?.qualification || '',
             education: j.requirements?.education || '',
@@ -539,6 +544,8 @@ export function PostJobScreen({ navigation, route }) {
           period: form.salary.period,
           isNegotiable: form.salary.isNegotiable,
           isHidden: form.salary.isHidden,
+          incentiveAvailable: form.salary.incentiveAvailable,
+          incentiveDescription: form.salary.incentiveAvailable ? form.salary.incentiveDescription.trim() : '',
         },
 
         requirements: {
@@ -546,6 +553,7 @@ export function PostJobScreen({ navigation, route }) {
             min: Number(form.requirements.experience.min) || 0,
             max: form.requirements.experience.max ? Number(form.requirements.experience.max) : undefined,
             unit: form.requirements.experience.unit,
+            isFresher: form.requirements.experience.isFresher,
           },
           qualification: form.requirements.qualification,
           education: form.requirements.education,
@@ -628,351 +636,388 @@ export function PostJobScreen({ navigation, route }) {
           <Text style={[styles.stepLabel, step >= 2 && styles.stepLabelActive]}>Requirements & Schedule</Text>
         </View>
       </View>
-  <KeyboardAvoidingView
+      <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        onScrollBeginDrag={() => setShowSuggestions(false)}
-      >
-        {step === 1 ? (
-          <>
-            <Card style={styles.card}>
-              <Text style={styles.sectionTitle}>Job Details</Text>
-              <Input label="Job Title *" placeholder="e.g. Delivery Executive" value={form.title} onChangeText={set('title')} />
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={() => setShowSuggestions(false)}
+        >
+          {step === 1 ? (
+            <>
+              <Card style={styles.card}>
+                <Text style={styles.sectionTitle}>Job Details</Text>
+                <Input label="Job Title *" placeholder="e.g. Delivery Executive" value={form.title} onChangeText={set('title')} />
 
-              <Select
-                label="Category *"
-                value={form.category}
-                options={categories}
-                onChange={set('category')}
-                placeholder={categoriesLoading ? 'Loading categories...' : 'Select category'}
-                disabled={categoriesLoading}
-              />
-              {/* <Input label="Sub Category" placeholder="e.g. Two-wheeler delivery" value={form.subCategory} onChangeText={set('subCategory')} /> */}
-              <Select label="Job Type" value={form.jobType} options={JOB_TYPES} onChange={set('jobType')} />
-              <Input
-                label="Description *"
-                placeholder="Roles, responsibilities, requirements..."
-                value={form.description}
-                onChangeText={set('description')}
-                multiline
-                style={styles.textArea}
-              />
-            </Card>
+                <Select
+                  label="Category *"
+                  value={form.category}
+                  options={categories}
+                  onChange={set('category')}
+                  placeholder={categoriesLoading ? 'Loading categories...' : 'Select category'}
+                  disabled={categoriesLoading}
+                />
+                {/* <Input label="Sub Category" placeholder="e.g. Two-wheeler delivery" value={form.subCategory} onChangeText={set('subCategory')} /> */}
+                <Select label="Job Type" value={form.jobType} options={JOB_TYPES} onChange={set('jobType')} />
 
-            <Card style={styles.card}>
-              <Text style={styles.sectionTitle}>Compensation & Openings</Text>
-              <View style={styles.row}>
-                <Input label="Salary min ₹/mo" placeholder="15000" keyboardType="number-pad" value={form.salary.min} onChangeText={setNested('salary', 'min')} containerStyle={styles.flex1} />
-                <Input label="Salary max ₹/mo" placeholder="25000" keyboardType="number-pad" value={form.salary.max} onChangeText={setNested('salary', 'max')} containerStyle={styles.flex1} />
-              </View>
-              <Input label="Vacancies" placeholder="1" keyboardType="number-pad" value={form.vacancies} onChangeText={set('vacancies')} />
+              </Card>
 
-              <View style={styles.switchRow}>
-                <Text style={styles.label}>Salary negotiable</Text>
-                <Switch value={form.salary.isNegotiable} onValueChange={setNested('salary', 'isNegotiable')} trackColor={{ true: COLORS.primary }} />
-              </View>
-              <View style={styles.switchRow}>
-                <Text style={styles.label}>Hide salary from listing</Text>
-                <Switch value={form.salary.isHidden} onValueChange={setNested('salary', 'isHidden')} trackColor={{ true: COLORS.primary }} />
-              </View>
-            </Card>
-            <Card style={styles.card}>
-              <Text style={styles.sectionTitle}>Work Setup</Text>
+              <Card style={styles.card}>
+                <Text style={styles.sectionTitle}>Compensation & Openings</Text>
+                <View style={styles.row}>
+                  <Input label="Salary min ₹/mo" placeholder="15000" keyboardType="number-pad" value={form.salary.min} onChangeText={setNested('salary', 'min')} containerStyle={styles.flex1} />
+                  <Input label="Salary max ₹/mo" placeholder="25000" keyboardType="number-pad" value={form.salary.max} onChangeText={setNested('salary', 'max')} containerStyle={styles.flex1} />
+                </View>
+                <Input label="Vacancy" placeholder="1" keyboardType="number-pad" value={form.vacancies} onChangeText={set('vacancies')} />
 
-              <Text style={styles.label}>Work Location Type</Text>
-              <View style={styles.chips}>
-                {WORK_LOCATION_TYPES.map((w) => (
-                  <IconChip
-                    key={w.value}
-                    label={w.label}
-                    icon={w.icon}
-                    active={form.workLocationType === w.value}
-                    onPress={() => set('workLocationType')(w.value)}
+                <View style={styles.switchRow}>
+                  <Text style={styles.label}>Salary negotiable</Text>
+                  <Switch value={form.salary.isNegotiable} onValueChange={setNested('salary', 'isNegotiable')} trackColor={{ true: COLORS.primary }} />
+                </View>
+                <View style={styles.switchRow}>
+                  <Text style={styles.label}>Hide salary from listing</Text>
+                  <Switch value={form.salary.isHidden} onValueChange={setNested('salary', 'isHidden')} trackColor={{ true: COLORS.primary }} />
+                </View>
+                <View style={styles.switchRow}>
+                  <Text style={styles.label}>Incentive available</Text>
+                  <Switch value={form.salary.incentiveAvailable} onValueChange={setNested('salary', 'incentiveAvailable')} trackColor={{ true: COLORS.primary }} />
+                </View>
+                {form.salary.incentiveAvailable && (
+                  <Input
+                    label="Incentive details"
+                    placeholder="e.g. ₹2000/month on target completion"
+                    value={form.salary.incentiveDescription}
+                    onChangeText={setNested('salary', 'incentiveDescription')}
+                    multiline
                   />
-                ))}
-              </View>
+                )}
+              </Card>
+              <Card style={styles.card}>
+                <Text style={styles.sectionTitle}>Work Setup</Text>
 
-              <Text style={styles.label}>Shift Time</Text>
-              <View style={styles.chips}>
-                {SHIFT_TIMES.map((s) => (
-                  <Chip key={s.value} label={s.label} active={form.shiftTime === s.value} onPress={() => set('shiftTime')(s.value)} />
-                ))}
-              </View>
-
-              <Text style={styles.label}>Working Days</Text>
-              <View style={styles.chips}>
-                {WORKING_DAYS.map((w) => (
-                  <Chip key={w.value} label={w.label} active={form.workingDays === w.value} onPress={() => set('workingDays')(w.value)} />
-                ))}
-              </View>
-
-              <Text style={styles.label}>Interview Type</Text>
-              <View style={styles.chips}>
-                {INTERVIEW_TYPES.map((it) => (
-                  <IconChip
-                    key={it.value}
-                    label={it.label}
-                    icon={it.icon}
-                    active={form.interviewType === it.value}
-                    onPress={() => set('interviewType')(it.value)}
-                  />
-                ))}
-              </View>
-
-           <View style={styles.switchRow}>
-                <Text style={styles.label}>Joining fee / deposit required</Text>
-                <Switch value={form.joiningFeeRequired} onValueChange={set('joiningFeeRequired')} trackColor={{ true: COLORS.primary }} />
-              </View>
-              {form.joiningFeeRequired && (
-                <Input
-                  label="Joining fee / deposit details *"
-                  placeholder="e.g. ₹500 refundable uniform deposit"
-                  value={form.joiningFeeDescription}
-                  onChangeText={set('joiningFeeDescription')}
-                  multiline
-                />
-              )}
-              <Text style={styles.label}>Marital Status</Text>
-              <View style={styles.chips}>
-                {MARITAL_OPTIONS.map((m) => (
-                  <Chip key={m.value} label={m.label} active={form.maritalStatus === m.value} onPress={() => set('maritalStatus')(m.value)} />
-                ))}
-              </View>
-
-              <Text style={styles.label}>Communication Preference — allow candidate to call between</Text>
-              <View style={styles.row}>
-                <Pressable style={[styles.dateBox, styles.flex1]} onPress={() => setShowCallStartPicker(true)}>
-                  <Ionicons name="time-outline" size={18} color={COLORS.primary} />
-                  <Text style={styles.dateText}>{formatTime(form.callTimeStart)}</Text>
-                </Pressable>
-                <Pressable style={[styles.dateBox, styles.flex1]} onPress={() => setShowCallEndPicker(true)}>
-                  <Ionicons name="time-outline" size={18} color={COLORS.primary} />
-                  <Text style={styles.dateText}>{formatTime(form.callTimeEnd)}</Text>
-                </Pressable>
-              </View>
-              {showCallStartPicker && (
-                <DateTimePicker
-                  value={form.callTimeStart ? new Date(form.callTimeStart) : defaultCallStart()}
-                  mode="time"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, date) => {
-                    setShowCallStartPicker(Platform.OS === 'ios');
-                    if (date) set('callTimeStart')(date);
-                  }}
-                />
-              )}
-              {showCallEndPicker && (
-                <DateTimePicker
-                  value={form.callTimeEnd ? new Date(form.callTimeEnd) : defaultCallEnd()}
-                  mode="time"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, date) => {
-                    setShowCallEndPicker(Platform.OS === 'ios');
-                    if (date) set('callTimeEnd')(date);
-                  }}
-                />
-              )}
-            </Card>
-            <Card style={[styles.card, { zIndex: 20 }]}>
-              <Text style={styles.sectionTitle}>Location</Text>
-
-              <Text style={styles.label}>Work Mode</Text>
-              <View style={styles.chips}>
-                <Chip label="On-site" active={!form.location.isRemote} onPress={() => setNested('location', 'isRemote')(false)} />
-                <Chip label="Remote" active={form.location.isRemote} onPress={() => setNested('location', 'isRemote')(true)} />
-              </View>
-
-              {!form.location.isRemote && (
-                <>
-                  <View style={styles.addressWrap}>
-                    <Input
-                      label="Location"
-                      placeholder="Start typing area, locality..."
-                      value={addressQuery}
-                      onChangeText={onAddressChange}
-                      onFocus={() => addressQuery.length >= 3 && setShowSuggestions(true)}
+                <Text style={styles.label}>Work Location Type</Text>
+                <View style={styles.chips}>
+                  {WORK_LOCATION_TYPES.map((w) => (
+                    <IconChip
+                      key={w.value}
+                      label={w.label}
+                      icon={w.icon}
+                      active={form.workLocationType === w.value}
+                      onPress={() => set('workLocationType')(w.value)}
                     />
-                    {searchingAddress && (
-                      <ActivityIndicator size="small" color={COLORS.primary} style={styles.addressSpinner} />
-                    )}
-
-                    {showSuggestions && suggestions.length > 0 && (
-                      <View style={styles.suggestionBox}>
-                        {suggestions.map((s) => (
-                          <Pressable key={s.place_id} style={styles.suggestionRow} onPress={() => onSelectSuggestion(s.place_id, s.description)}>
-                            <Ionicons name="location-outline" size={16} color={COLORS.textSecondary} />
-                            <Text style={styles.suggestionText} numberOfLines={2}>{s.description}</Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-
-                  <View style={styles.row}>
-                    <Input label="City" placeholder="Delhi" value={form.location.city} onChangeText={setNested('location', 'city')} containerStyle={styles.flex1} />
-                    <Input label="State" placeholder="Delhi" value={form.location.state} onChangeText={setNested('location', 'state')} containerStyle={styles.flex1} />
-                  </View>
-                  <View style={styles.row}>
-                    <Input label="Pincode" placeholder="110085" keyboardType="number-pad" value={form.location.pincode} onChangeText={setNested('location', 'pincode')} containerStyle={styles.flex1} />
-                    <Input label="Country" value={form.location.country} onChangeText={setNested('location', 'country')} containerStyle={styles.flex1} />
-                  </View>
-                </>
-              )}
-            </Card>
-
-            <Button title="Next: Requirements" onPress={goNext} size="lg" />
-          </>
-        ) : (
-          <>
-            <Card style={styles.card}>
-              <Text style={styles.sectionTitle}>Experience & Qualification</Text>
-              <View style={styles.row}>
-                <Input label="Min experience" keyboardType="number-pad" value={form.requirements.experience.min} onChangeText={setExperience('min')} containerStyle={styles.flex1} />
-                <Input label="Max experience" keyboardType="number-pad" value={form.requirements.experience.max} onChangeText={setExperience('max')} containerStyle={styles.flex1} />
-              </View>
-              {/* <Select label="Experience unit" value={form.requirements.experience.unit} options={EXPERIENCE_UNITS} onChange={setExperience('unit')} /> */}
-
-              <Select
-                label="Qualification"
-                placeholder="Select qualification"
-                value={form.requirements.qualification}
-                options={QUALIFICATION_OPTIONS}
-                onChange={setNested('requirements', 'qualification')}
-              />
-              <Select
-                label="Education"
-                placeholder="Select education"
-                value={form.requirements.education}
-                options={EDUCATION_OPTIONS}
-                onChange={setNested('requirements', 'education')}
-              />
-
-              <Text style={styles.label}>Skills</Text>
-              <View style={styles.chips}>
-                {SKILL_OPTIONS.map((sk) => (
-                  <Chip
-                    key={sk}
-                    label={sk}
-                    active={form.requirements.skills.includes(sk)}
-                    onPress={() => toggleMultiSelect('requirements', 'skills', sk)}
-                  />
-                ))}
-              </View>
-
-              <Text style={styles.label}>Languages</Text>
-              <View style={styles.chips}>
-                {LANGUAGE_OPTIONS.map((lng) => (
-                  <Chip
-                    key={lng}
-                    label={lng}
-                    active={form.requirements.languages.includes(lng)}
-                    onPress={() => toggleMultiSelect('requirements', 'languages', lng)}
-                  />
-                ))}
-              </View>
-            </Card>
-
-            <Card style={styles.card}>
-              <Text style={styles.sectionTitle}>License & Vehicle</Text>
-
-              <View style={styles.switchRow}>
-                <Text style={styles.label}>License required</Text>
-                <Switch value={form.requirements.licenseRequired} onValueChange={setNested('requirements', 'licenseRequired')} trackColor={{ true: COLORS.primary }} />
-              </View>
-              {form.requirements.licenseRequired && (
-                <View style={styles.chips}>
-                  {LICENSE_TYPES.map((l) => (
-                    <Chip key={l} label={l} active={form.requirements.licenseType.includes(l)} onPress={() => toggleMultiSelect('requirements', 'licenseType', l)} />
                   ))}
                 </View>
-              )}
 
-              <View style={styles.switchRow}>
-                <Text style={styles.label}>Vehicle required</Text>
-                <Switch value={form.requirements.vehicleRequired} onValueChange={setNested('requirements', 'vehicleRequired')} trackColor={{ true: COLORS.primary }} />
-              </View>
-              {form.requirements.vehicleRequired && (
+                <Text style={styles.label}>Shift Time</Text>
                 <View style={styles.chips}>
-                  {VEHICLE_TYPES.map((v) => (
-                    <Chip key={v} label={v} active={form.requirements.vehicleType.includes(v)} onPress={() => toggleMultiSelect('requirements', 'vehicleType', v)} />
+                  {SHIFT_TIMES.map((s) => (
+                    <Chip key={s.value} label={s.label} active={form.shiftTime === s.value} onPress={() => set('shiftTime')(s.value)} />
                   ))}
                 </View>
-              )}
-            </Card>
 
-            <Card style={styles.card}>
-              <Text style={styles.sectionTitle}>Candidate Criteria</Text>
-              <Select label="Gender" value={form.requirements.gender} options={GENDER_OPTIONS} onChange={setNested('requirements', 'gender')} />
+                <Text style={styles.label}>Working Days</Text>
+                <View style={styles.chips}>
+                  {WORKING_DAYS.map((w) => (
+                    <Chip key={w.value} label={w.label} active={form.workingDays === w.value} onPress={() => set('workingDays')(w.value)} />
+                  ))}
+                </View>
+
+                <Text style={styles.label}>Interview Type</Text>
+                <View style={styles.chips}>
+                  {INTERVIEW_TYPES.map((it) => (
+                    <IconChip
+                      key={it.value}
+                      label={it.label}
+                      icon={it.icon}
+                      active={form.interviewType === it.value}
+                      onPress={() => set('interviewType')(it.value)}
+                    />
+                  ))}
+                </View>
+
+                <View style={styles.switchRow}>
+                  <Text style={styles.label}>Joining fee / deposit required</Text>
+                  <Switch value={form.joiningFeeRequired} onValueChange={set('joiningFeeRequired')} trackColor={{ true: COLORS.primary }} />
+                </View>
+                {form.joiningFeeRequired && (
+                  <Input
+                    label="Joining fee / deposit details *"
+                    placeholder="e.g. ₹500 refundable uniform deposit"
+                    value={form.joiningFeeDescription}
+                    onChangeText={set('joiningFeeDescription')}
+                    multiline
+                  />
+                )}
+                <Text style={styles.label}>Marital Status</Text>
+                <View style={styles.chips}>
+                  {MARITAL_OPTIONS.map((m) => (
+                    <Chip key={m.value} label={m.label} active={form.maritalStatus === m.value} onPress={() => set('maritalStatus')(m.value)} />
+                  ))}
+                </View>
+
+                <Text style={styles.label}>Communication Preference — allow candidate to call between</Text>
+                <View style={styles.row}>
+                  <Pressable style={[styles.dateBox, styles.flex1]} onPress={() => setShowCallStartPicker(true)}>
+                    <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+                    <Text style={styles.dateText}>{formatTime(form.callTimeStart)}</Text>
+                  </Pressable>
+                  <Pressable style={[styles.dateBox, styles.flex1]} onPress={() => setShowCallEndPicker(true)}>
+                    <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+                    <Text style={styles.dateText}>{formatTime(form.callTimeEnd)}</Text>
+                  </Pressable>
+                </View>
+                {showCallStartPicker && (
+                  <DateTimePicker
+                    value={form.callTimeStart ? new Date(form.callTimeStart) : defaultCallStart()}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, date) => {
+                      setShowCallStartPicker(Platform.OS === 'ios');
+                      if (date) set('callTimeStart')(date);
+                    }}
+                  />
+                )}
+                {showCallEndPicker && (
+                  <DateTimePicker
+                    value={form.callTimeEnd ? new Date(form.callTimeEnd) : defaultCallEnd()}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, date) => {
+                      setShowCallEndPicker(Platform.OS === 'ios');
+                      if (date) set('callTimeEnd')(date);
+                    }}
+                  />
+                )}
+              </Card>
+              <Card style={[styles.card, { zIndex: 20 }]}>
+                <Text style={styles.sectionTitle}>Location</Text>
+
+                <Text style={styles.label}>Work Mode</Text>
+                <View style={styles.chips}>
+                  <Chip label="On-site" active={!form.location.isRemote} onPress={() => setNested('location', 'isRemote')(false)} />
+                  <Chip label="Remote" active={form.location.isRemote} onPress={() => setNested('location', 'isRemote')(true)} />
+                </View>
+
+                {!form.location.isRemote && (
+                  <>
+                    <View style={styles.addressWrap}>
+                      <Input
+                        label="Location"
+                        placeholder="Start typing area, locality..."
+                        value={addressQuery}
+                        onChangeText={onAddressChange}
+                        onFocus={() => addressQuery.length >= 3 && setShowSuggestions(true)}
+                      />
+                      {searchingAddress && (
+                        <ActivityIndicator size="small" color={COLORS.primary} style={styles.addressSpinner} />
+                      )}
+
+                      {showSuggestions && suggestions.length > 0 && (
+                        <View style={styles.suggestionBox}>
+                          {suggestions.map((s) => (
+                            <Pressable key={s.place_id} style={styles.suggestionRow} onPress={() => onSelectSuggestion(s.place_id, s.description)}>
+                              <Ionicons name="location-outline" size={16} color={COLORS.textSecondary} />
+                              <Text style={styles.suggestionText} numberOfLines={2}>{s.description}</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.row}>
+                      <Input label="City" placeholder="Delhi" value={form.location.city} onChangeText={setNested('location', 'city')} containerStyle={styles.flex1} />
+                      <Input label="State" placeholder="Delhi" value={form.location.state} onChangeText={setNested('location', 'state')} containerStyle={styles.flex1} />
+                    </View>
+                    <View style={styles.row}>
+                      <Input label="Pincode" placeholder="110085" keyboardType="number-pad" value={form.location.pincode} onChangeText={setNested('location', 'pincode')} containerStyle={styles.flex1} />
+                      <Input label="Country" value={form.location.country} onChangeText={setNested('location', 'country')} containerStyle={styles.flex1} />
+                    </View>
+                  </>
+                )}
+              </Card>
+
+              <Card style={[styles.card, { zIndex: 20 }]}>
+
+                <Input
+                  label="Description *"
+                  placeholder="Roles, responsibilities, requirements..."
+                  value={form.description}
+                  onChangeText={set('description')}
+                  multiline
+                  style={styles.textArea}
+                />
+
+              </Card>
+
+              <Button title="Next: Requirements" onPress={goNext} size="lg" />
+            </>
+          ) : (
+            <>
+              <Card style={styles.card}>
+                <Text style={styles.sectionTitle}>Experience & Qualification</Text>
+
+                <View style={styles.chips}>
+                  <Chip
+                    label="Only Fresher (No experience)"
+                    active={form.requirements.experience.isFresher}
+                    onPress={() => {
+                      const next = !form.requirements.experience.isFresher;
+                      setExperience('isFresher')(next);
+                      if (next) {
+                        setExperience('min')('0');
+                        setExperience('max')('');
+                      }
+                    }}
+                  />
+                </View>
+
+                {!form.requirements.experience.isFresher && (
+                  <View style={styles.row}>
+                    <Input label="Min experience" keyboardType="number-pad" value={form.requirements.experience.min} onChangeText={setExperience('min')} containerStyle={styles.flex1} />
+                    <Input label="Max experience" keyboardType="number-pad" value={form.requirements.experience.max} onChangeText={setExperience('max')} containerStyle={styles.flex1} />
+                  </View>
+                )}
+                {/* <Select label="Experience unit" value={form.requirements.experience.unit} options={EXPERIENCE_UNITS} onChange={setExperience('unit')} /> */}
+
+                <Select
+                  label="Qualification"
+                  placeholder="Select qualification"
+                  value={form.requirements.qualification}
+                  options={QUALIFICATION_OPTIONS}
+                  onChange={setNested('requirements', 'qualification')}
+                />
+                <Select
+                  label="Education"
+                  placeholder="Select education"
+                  value={form.requirements.education}
+                  options={EDUCATION_OPTIONS}
+                  onChange={setNested('requirements', 'education')}
+                />
+
+                <Text style={styles.label}>Skills</Text>
+                <View style={styles.chips}>
+                  {SKILL_OPTIONS.map((sk) => (
+                    <Chip
+                      key={sk}
+                      label={sk}
+                      active={form.requirements.skills.includes(sk)}
+                      onPress={() => toggleMultiSelect('requirements', 'skills', sk)}
+                    />
+                  ))}
+                </View>
+
+                <Text style={styles.label}>Languages</Text>
+                <View style={styles.chips}>
+                  {LANGUAGE_OPTIONS.map((lng) => (
+                    <Chip
+                      key={lng}
+                      label={lng}
+                      active={form.requirements.languages.includes(lng)}
+                      onPress={() => toggleMultiSelect('requirements', 'languages', lng)}
+                    />
+                  ))}
+                </View>
+              </Card>
+
+              <Card style={styles.card}>
+                <Text style={styles.sectionTitle}>License & Vehicle</Text>
+
+                <View style={styles.switchRow}>
+                  <Text style={styles.label}>License required</Text>
+                  <Switch value={form.requirements.licenseRequired} onValueChange={setNested('requirements', 'licenseRequired')} trackColor={{ true: COLORS.primary }} />
+                </View>
+                {form.requirements.licenseRequired && (
+                  <View style={styles.chips}>
+                    {LICENSE_TYPES.map((l) => (
+                      <Chip key={l} label={l} active={form.requirements.licenseType.includes(l)} onPress={() => toggleMultiSelect('requirements', 'licenseType', l)} />
+                    ))}
+                  </View>
+                )}
+
+                <View style={styles.switchRow}>
+                  <Text style={styles.label}>Vehicle required</Text>
+                  <Switch value={form.requirements.vehicleRequired} onValueChange={setNested('requirements', 'vehicleRequired')} trackColor={{ true: COLORS.primary }} />
+                </View>
+                {form.requirements.vehicleRequired && (
+                  <View style={styles.chips}>
+                    {VEHICLE_TYPES.map((v) => (
+                      <Chip key={v} label={v} active={form.requirements.vehicleType.includes(v)} onPress={() => toggleMultiSelect('requirements', 'vehicleType', v)} />
+                    ))}
+                  </View>
+                )}
+              </Card>
+
+              <Card style={styles.card}>
+                <Text style={styles.sectionTitle}>Candidate Criteria</Text>
+                <Select label="Gender" value={form.requirements.gender} options={GENDER_OPTIONS} onChange={setNested('requirements', 'gender')} />
+                <View style={styles.row}>
+                  <Input label="Min age" keyboardType="number-pad" value={form.requirements.ageMin} onChangeText={setNested('requirements', 'ageMin')} containerStyle={styles.flex1} />
+                  <Input label="Max age" keyboardType="number-pad" value={form.requirements.ageMax} onChangeText={setNested('requirements', 'ageMax')} containerStyle={styles.flex1} />
+                </View>
+              </Card>
+
+              <Card style={styles.card}>
+                <Text style={styles.sectionTitle}>Scheduling</Text>
+
+                <Text style={styles.label}>Application Deadline</Text>
+                <Pressable style={styles.dateBox} onPress={() => setShowDeadlinePicker(true)}>
+                  <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
+                  <Text style={styles.dateText}>{formatDate(form.applicationDeadline)}</Text>
+                </Pressable>
+                {showDeadlinePicker && (
+                  <DateTimePicker
+                    value={form.applicationDeadline ? new Date(form.applicationDeadline) : new Date()}
+                    mode="date"
+                    minimumDate={new Date()}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, date) => {
+                      setShowDeadlinePicker(Platform.OS === 'ios');
+                      if (date) set('applicationDeadline')(date);
+                    }}
+                  />
+                )}
+
+                <Text style={styles.label}>Job Expiry Date *</Text>
+                <Pressable style={styles.dateBox} onPress={() => setShowExpiryPicker(true)}>
+                  <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
+                  <Text style={styles.dateText}>{formatDate(form.expiryDate)}</Text>
+                </Pressable>
+                {showExpiryPicker && (
+                  <DateTimePicker
+                    value={form.expiryDate ? new Date(form.expiryDate) : new Date()}
+                    mode="date"
+                    minimumDate={new Date()}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, date) => {
+                      setShowExpiryPicker(Platform.OS === 'ios');
+                      if (date) set('expiryDate')(date);
+                    }}
+                  />
+                )}
+              </Card>
+
+              <Card style={styles.card}>
+                <Text style={styles.sectionTitle}>Additional Info</Text>
+                <Input label="Tags (comma separated)" placeholder="e.g. urgent, weekend-off" value={form.tags} onChangeText={set('tags')} />
+                <Input label="Benefits (comma separated)" placeholder="e.g. PF, health insurance" value={form.benefits} onChangeText={set('benefits')} />
+
+                <Text style={styles.label}>Listing</Text>
+                <View style={styles.chips}>
+                  <Chip label="Featured listing" active={form.isFeatured} onPress={() => set('isFeatured')(!form.isFeatured)} />
+                </View>
+              </Card>
+
               <View style={styles.row}>
-                <Input label="Min age" keyboardType="number-pad" value={form.requirements.ageMin} onChangeText={setNested('requirements', 'ageMin')} containerStyle={styles.flex1} />
-                <Input label="Max age" keyboardType="number-pad" value={form.requirements.ageMax} onChangeText={setNested('requirements', 'ageMax')} containerStyle={styles.flex1} />
+                <Button title="Back" onPress={goBackStep} size="lg" variant="outline" style={styles.flex1} />
+                <Button title={editing ? 'Save Changes' : 'Post Job'} onPress={submit} loading={saving} size="lg" style={styles.flex1} />
               </View>
-            </Card>
-
-            <Card style={styles.card}>
-              <Text style={styles.sectionTitle}>Scheduling</Text>
-
-              <Text style={styles.label}>Application Deadline</Text>
-              <Pressable style={styles.dateBox} onPress={() => setShowDeadlinePicker(true)}>
-                <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
-                <Text style={styles.dateText}>{formatDate(form.applicationDeadline)}</Text>
-              </Pressable>
-              {showDeadlinePicker && (
-                <DateTimePicker
-                  value={form.applicationDeadline ? new Date(form.applicationDeadline) : new Date()}
-                  mode="date"
-                  minimumDate={new Date()}
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, date) => {
-                    setShowDeadlinePicker(Platform.OS === 'ios');
-                    if (date) set('applicationDeadline')(date);
-                  }}
-                />
-              )}
-
-              <Text style={styles.label}>Job Expiry Date *</Text>
-              <Pressable style={styles.dateBox} onPress={() => setShowExpiryPicker(true)}>
-                <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
-                <Text style={styles.dateText}>{formatDate(form.expiryDate)}</Text>
-              </Pressable>
-              {showExpiryPicker && (
-                <DateTimePicker
-                  value={form.expiryDate ? new Date(form.expiryDate) : new Date()}
-                  mode="date"
-                  minimumDate={new Date()}
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, date) => {
-                    setShowExpiryPicker(Platform.OS === 'ios');
-                    if (date) set('expiryDate')(date);
-                  }}
-                />
-              )}
-            </Card>
-
-            <Card style={styles.card}>
-              <Text style={styles.sectionTitle}>Additional Info</Text>
-              <Input label="Tags (comma separated)" placeholder="e.g. urgent, weekend-off" value={form.tags} onChangeText={set('tags')} />
-              <Input label="Benefits (comma separated)" placeholder="e.g. PF, health insurance" value={form.benefits} onChangeText={set('benefits')} />
-
-              <Text style={styles.label}>Listing</Text>
-              <View style={styles.chips}>
-                <Chip label="Featured listing" active={form.isFeatured} onPress={() => set('isFeatured')(!form.isFeatured)} />
-              </View>
-            </Card>
-
-            <View style={styles.row}>
-              <Button title="Back" onPress={goBackStep} size="lg" variant="outline" style={styles.flex1} />
-              <Button title={editing ? 'Save Changes' : 'Post Job'} onPress={submit} loading={saving} size="lg" style={styles.flex1} />
-            </View>
-          </>
-        )}
-      </ScrollView>
+            </>
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );

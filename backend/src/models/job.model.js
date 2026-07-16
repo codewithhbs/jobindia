@@ -17,19 +17,21 @@ const jobSchema = new mongoose.Schema({
   },
 
   salary: {
-    min: Number,
-    max: Number,
-    currency: { type: String, default: 'INR' },
-    period: { type: String, enum: ['hourly', 'daily', 'monthly', 'yearly'], default: 'monthly' },
-    isNegotiable: { type: Boolean, default: false },
-    isHidden: { type: Boolean, default: false }
-  },
+  min: Number,
+  max: Number,
+  currency: { type: String, default: 'INR' },
+  period: { type: String, enum: ['hourly', 'daily', 'monthly', 'yearly'], default: 'monthly' },
+  isNegotiable: { type: Boolean, default: false },
+  isHidden: { type: Boolean, default: false },
+  incentiveAvailable: { type: Boolean, default: false },   // ✅ new
+  incentiveDescription: { type: String, default: '' }      // ✅ new (optional detail, e.g. "₹2000/month on target")
+},
 
   location: {
     type: { type: String, enum: ['Point'] },
     coordinates: { type: [Number], required: false }, // [lng, lat]
     address: String,
-    city: { type: String, required: true },
+    city: { type: String, required: false },
     state: String,
     country: { type: String, default: 'India' },
     pincode: String,
@@ -93,10 +95,11 @@ joiningFeeDescription:{
   },
   requirements: {
     experience: {
-      min: { type: Number, default: 0 },
-      max: Number,
-      unit: { type: String, enum: ['months', 'years'], default: 'years' }
-    },
+    min: { type: Number, default: 0 },
+    max: Number,
+    unit: { type: String, enum: ['months', 'years'], default: 'years' },
+    isFresher: { type: Boolean, default: false }   // ✅ new
+  },
     education: String,
     skills: [String],
     languages: [String],
