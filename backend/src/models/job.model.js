@@ -144,7 +144,7 @@ joiningFeeDescription:{
   updatedAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
-jobSchema.index({ location: '2dsphere' });
+jobSchema.index({ 'location.coordinates': '2dsphere' });
 jobSchema.index({ title: 'text', description: 'text', tags: 'text' });
 jobSchema.index({ category: 1, status: 1, 'location.city': 1 });
 jobSchema.index({ employerId: 1, status: 1 });
