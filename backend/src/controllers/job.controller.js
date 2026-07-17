@@ -847,6 +847,7 @@ exports.updateJob = async (req, res, next) => {
     }
 
     const updateData = { ...req.body };
+    let geoUnset = null; // set when switching a job to remote — see location block below
 
     // ── Normalize location: handle BOTH coordinates-array AND lat/lng-field shapes ──
     if (updateData.location) {
@@ -888,7 +889,17 @@ exports.updateJob = async (req, res, next) => {
       }
 
       updateData.location = locationData;
+
+      // Remote job → explicitly drop any previously-stored geo fields.
+      // Without this, switching an on-site job to remote (or re-saving a
+      // remote job) can leave stale/invalid location.type / location.coordinates
+      // in the DB, which makes the 2dsphere index throw
+      // "can't extract geo keys" on the next insert/update that touches it.
+      if (isRemote) {
+        geoUnset = { "location.type": "", "location.coordinates": "" };
+      }
     }
+
     // ── Normalize & validate work-setup fields ──
     const ENUM_CHECKS = {
       workLocationType: ["work_from_office", "field_job", "work_from_home"],
@@ -1028,7 +1039,11 @@ exports.updateJob = async (req, res, next) => {
     }
 
     const { $push, ...setFields } = updateData;
-    const mongoUpdate = $push ? { $set: setFields, $push } : { $set: setFields };
+    const mongoUpdate = {
+      $set: setFields,
+      ...($push ? { $push } : {}),
+      ...(geoUnset ? { $unset: geoUnset } : {}),
+    };
 
     const updatedJob = await Job.findByIdAndUpdate(
       req.params.id,

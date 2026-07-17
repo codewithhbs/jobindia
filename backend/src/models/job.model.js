@@ -29,7 +29,7 @@ const jobSchema = new mongoose.Schema({
 
   location: {
     type: { type: String, enum: ['Point'] },
-    coordinates: { type: [Number], required: false }, // [lng, lat]
+    coordinates: { type: [Number], required: false, default: undefined }, // [lng, lat]
     address: String,
     city: { type: String, required: false },
     state: String,
@@ -68,7 +68,7 @@ const jobSchema = new mongoose.Schema({
   },
 joiningFeeDescription:{
     type: String,
-    defaukt:''
+    default:''
 },
   maritalStatus: {
     type: String,
@@ -188,6 +188,14 @@ const applicationSchema = new mongoose.Schema({
 
 applicationSchema.index({ jobId: 1, applicantId: 1 }, { unique: true });
 applicationSchema.index({ applicantId: 1, status: 1 });
+
+jobSchema.pre('save', function (next) {
+  if (this.location?.isRemote) {
+    this.location.type = undefined;
+    this.location.coordinates = undefined;
+  }
+  next();
+});
 
 // Saved Jobs
 const savedJobSchema = new mongoose.Schema({
