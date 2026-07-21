@@ -405,7 +405,7 @@ export default function EditProfileScreen({ route }) {
             </>
           )}
 
-          <Text style={styles.fieldLabel}>Preferred locations</Text>
+          <Text style={styles.fieldLabel}>Preferred City</Text>
           <Pressable style={styles.pickerTrigger} onPress={() => setLocationPickerOpen(true)}>
             <Ionicons name="search-outline" size={16} color={COLORS.textSecondary} />
             <Text style={styles.pickerTriggerText}>
@@ -433,7 +433,7 @@ export default function EditProfileScreen({ route }) {
 
           <SearchablePicker
             visible={locationPickerOpen}
-            title="Preferred locations"
+            title="Preferred City"
             mode="multi"
             closeOnSelect
             data={INDIA_STATES}

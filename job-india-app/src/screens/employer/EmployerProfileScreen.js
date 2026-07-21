@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, Image } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, ScrollView, StyleSheet, Pressable, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert } from '../../components/ui/AppAlert';
@@ -13,6 +13,8 @@ import { useAuthStore } from '../../store/authStore';
 import { toast } from '../../utils/toast';
 import { Loader, Screen } from '../../components/ui/Screen';
 import { Badge, Card, Input, Select } from '../../components/ui';
+
+const GOOGLE_MAPS_API_KEY = 'AIzaSyDnyLLiPykuaRbCKZEmBPa0jzdiB61qRpc';
 
 const COMPANY_SIZE_OPTIONS = [
   { label: '1-10 employees', value: '1-10' },
@@ -36,6 +38,13 @@ const EMPTY_FORM = {
 };
 const BASE_SERVER = 'https://jobapi.adsdigitalmedia.com';
 
+const genToken = () =>
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+
 export function EmployerProfileScreen({ navigation }) {
   const logout = useAuthStore((s) => s.logout);
   const { data: profile, loading, refetch } = useFetch(() => employerApi.me(), []);
@@ -43,6 +52,15 @@ export function EmployerProfileScreen({ navigation }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [logo, setLogo] = useState(null); // { uri, name, type } when freshly picked
   const [saving, setSaving] = useState(false);
+
+  // ── address autocomplete ──
+  const [suggestions, setSuggestions] = useState([]);
+  const [searchingAddress, setSearchingAddress] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const sessionTokenRef = useRef(genToken());
+  const debounceRef = useRef(null);
+
+  const getSessionToken = () => sessionTokenRef.current;
 
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
   const setNested = (group, k) => (v) =>
@@ -74,6 +92,76 @@ export function EmployerProfileScreen({ navigation }) {
       },
     });
   }, [profile]);
+
+  // ── Places Autocomplete ────────────────────
+  const fetchSuggestions = useCallback((text) => {
+    if (!text || text.trim().length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    setSearchingAddress(true);
+    const url =
+      `https://maps.googleapis.com/maps/api/place/autocomplete/json` +
+      `?input=${encodeURIComponent(text)}` +
+      `&components=country:in` +
+      `&sessiontoken=${getSessionToken()}` +
+      `&key=${GOOGLE_MAPS_API_KEY}`;
+
+    fetch(url)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.status === 'OK') setSuggestions(json.predictions || []);
+        else setSuggestions([]);
+      })
+      .catch(() => setSuggestions([]))
+      .finally(() => setSearchingAddress(false));
+  }, []);
+
+  const onStreetChange = (text) => {
+    setNested('address', 'street')(text);
+    setShowSuggestions(true);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchSuggestions(text), 350);
+  };
+
+  const pickPlaceComponent = (components, type) => {
+    const c = components?.find((x) => x.types.includes(type));
+    return c ? c.long_name : '';
+  };
+
+  const onSelectSuggestion = async (item) => {
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setNested('address', 'street')(item.description);
+
+    try {
+      const url =
+        `https://maps.googleapis.com/maps/api/place/details/json` +
+        `?place_id=${item.place_id}` +
+        `&fields=address_component` +
+        `&sessiontoken=${getSessionToken()}` +
+        `&key=${GOOGLE_MAPS_API_KEY}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.status === 'OK') {
+        const comps = json.result.address_components;
+        const city =
+          pickPlaceComponent(comps, 'locality') ||
+          pickPlaceComponent(comps, 'administrative_area_level_2');
+        const state = pickPlaceComponent(comps, 'administrative_area_level_1');
+        const pincode = pickPlaceComponent(comps, 'postal_code');
+        const country = pickPlaceComponent(comps, 'country') || 'India';
+        setForm((f) => ({
+          ...f,
+          address: { ...f.address, city, state, pincode, country },
+        }));
+      }
+    } catch (e) {
+      // silent fail, street already filled
+    } finally {
+      sessionTokenRef.current = genToken(); // new session after selection
+    }
+  };
 
   const pickLogo = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -246,9 +334,38 @@ export function EmployerProfileScreen({ navigation }) {
         </Card>
 
         {/* Address */}
-        <Card style={{ gap: SPACING.md }}>
+        <Card style={{ gap: SPACING.md, zIndex: 10 }}>
           <Text style={styles.sectionTitle}>Company Address</Text>
-          <Input label="Street" value={form.address.street} onChangeText={setNested('address', 'street')} />
+
+          <View style={{ zIndex: 20 }}>
+            <Input
+              label="Location"
+              value={form.address.street}
+              onChangeText={onStreetChange}
+              onFocus={() => setShowSuggestions(true)}
+              placeholder="Start typing address..."
+            />
+            {searchingAddress && (
+              <ActivityIndicator size="small" color={COLORS.accent} style={styles.searchLoader} />
+            )}
+            {showSuggestions && suggestions.length > 0 && (
+              <View style={styles.suggestionBox}>
+                {suggestions.map((item) => (
+                  <Pressable
+                    key={item.place_id}
+                    style={styles.suggestionRow}
+                    onPress={() => onSelectSuggestion(item)}
+                  >
+                    <Ionicons name="location-outline" size={16} color={COLORS.textMuted} />
+                    <Text style={styles.suggestionText} numberOfLines={2}>
+                      {item.description}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+
           <Input label="City" value={form.address.city} onChangeText={setNested('address', 'city')} />
           <Input label="State" value={form.address.state} onChangeText={setNested('address', 'state')} />
           <Input label="Country" value={form.address.country} onChangeText={setNested('address', 'country')} />
@@ -282,4 +399,19 @@ const styles = StyleSheet.create({
   removeLogoText: { color: COLORS.danger, fontSize: FONTS.sizes.sm, fontWeight: '600' },
   logout: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, padding: SPACING.md },
   logoutText: { color: COLORS.danger, fontWeight: '700', fontSize: FONTS.sizes.md },
+  searchLoader: { position: 'absolute', right: SPACING.md, top: 38 },
+  suggestionBox: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    marginTop: 4,
+    maxHeight: 220,
+    overflow: 'hidden',
+  },
+  suggestionRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm,
+    padding: SPACING.sm,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  suggestionText: { flex: 1, fontSize: FONTS.sizes.sm, color: COLORS.text },
 });

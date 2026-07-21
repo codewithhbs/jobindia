@@ -461,6 +461,11 @@ export default function HomeScreen() {
     setSuggestions([]);
   }, []);
 
+  const isDriver = user?.userId?.role === "driver";
+
+  const whatsapp_link = isDriver
+    ? settings?.whatsapp_link ?? ""
+    : settings?.whatsapp_link_jobseeker ?? "";
   return (
     <Screen>
       {/* ---- Fixed top header: logo + map + notifications ---- */}
@@ -540,9 +545,9 @@ export default function HomeScreen() {
         <AppFooter refreshing={refreshing} />
 
       </ScrollView>
-      {settings?.whatsapp_link && (
+      {whatsapp_link && (
         <Pressable
-          onPress={() => Linking.openURL(settings.whatsapp_link).catch(() => { })}
+          onPress={() => Linking.openURL(whatsapp_link).catch(() => { })}
           style={styles.waFloatBtn}
         >
           <Ionicons name="logo-whatsapp" size={26} color="#fff" />

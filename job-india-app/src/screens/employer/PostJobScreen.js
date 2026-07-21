@@ -672,17 +672,7 @@ export function PostJobScreen({ navigation, route }) {
                   <Input label="Salary min ₹/mo" placeholder="15000" keyboardType="number-pad" value={form.salary.min} onChangeText={setNested('salary', 'min')} containerStyle={styles.flex1} />
                   <Input label="Salary max ₹/mo" placeholder="25000" keyboardType="number-pad" value={form.salary.max} onChangeText={setNested('salary', 'max')} containerStyle={styles.flex1} />
                 </View>
-                <Input label="Vacancy" placeholder="1" keyboardType="number-pad" value={form.vacancies} onChangeText={set('vacancies')} />
-
-                <View style={styles.switchRow}>
-                  <Text style={styles.label}>Salary negotiable</Text>
-                  <Switch value={form.salary.isNegotiable} onValueChange={setNested('salary', 'isNegotiable')} trackColor={{ true: COLORS.primary }} />
-                </View>
-                <View style={styles.switchRow}>
-                  <Text style={styles.label}>Hide salary from listing</Text>
-                  <Switch value={form.salary.isHidden} onValueChange={setNested('salary', 'isHidden')} trackColor={{ true: COLORS.primary }} />
-                </View>
-                <View style={styles.switchRow}>
+                    <View style={styles.switchRow}>
                   <Text style={styles.label}>Incentive available</Text>
                   <Switch value={form.salary.incentiveAvailable} onValueChange={setNested('salary', 'incentiveAvailable')} trackColor={{ true: COLORS.primary }} />
                 </View>
@@ -695,6 +685,17 @@ export function PostJobScreen({ navigation, route }) {
                     multiline
                   />
                 )}
+                <Input label="Vacancy" placeholder="1" keyboardType="number-pad" value={form.vacancies} onChangeText={set('vacancies')} />
+
+                <View style={styles.switchRow}>
+                  <Text style={styles.label}>Salary negotiable</Text>
+                  <Switch value={form.salary.isNegotiable} onValueChange={setNested('salary', 'isNegotiable')} trackColor={{ true: COLORS.primary }} />
+                </View>
+                <View style={styles.switchRow}>
+                  <Text style={styles.label}>Hide salary from listing</Text>
+                  <Switch value={form.salary.isHidden} onValueChange={setNested('salary', 'isHidden')} trackColor={{ true: COLORS.primary }} />
+                </View>
+            
               </Card>
               <Card style={styles.card}>
                 <Text style={styles.sectionTitle}>Work Setup</Text>

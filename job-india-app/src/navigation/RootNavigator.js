@@ -20,6 +20,7 @@ import { COLORS } from '../constants/theme';
 import { jobseekerApi } from '../api/jobseeker.api';
 import { checkUpdateRequired } from '../utils/versionCheck';
 import { UpdateModal } from '../components/ui/UpdateModal';
+import { ActivityIndicator } from 'react-native';
 
 const navTheme = {
   ...DefaultTheme,
@@ -133,7 +134,7 @@ export function RootNavigator() {
   }, [navRef]);
 
   if (isLoading || settingsLoading) {
-    return <SplashScreen />;
+    return <ActivityIndicator  />;
   }
 
   if (settings?.maintenance_mode) {
