@@ -48,8 +48,7 @@ job-india-app/ios/.xcode.env.local
 # =========================
 # Android
 # =========================
-*.keystore
-*.jks
+
 *.apk
 *.aab
 
