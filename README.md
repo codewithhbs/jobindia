@@ -38,3 +38,18 @@ admin panel gates routes by role (Plans & Settings are superadmin-only).
 
 Each folder has its own README. All three talk to the same backend under `/api/v1` with
 phone-OTP auth + transparent token refresh.
+
+Property	Value
+Keystore File	krishna-jobs-release.keystore
+Key Alias	krishnajobs
+Store Password	Krishna@123
+Key Password	Krishna@123
+Key Algorithm	RSA
+Key Size	2048
+Validity	10000 days
+Common Name (CN)	Kishan Job
+Organizational Unit (OU)	Development
+Organization (O)	Kishan Job
+City (L)	Delhi
+State (ST)	Delhi
+Country (C)	IN

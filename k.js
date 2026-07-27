@@ -4,7 +4,7 @@ const alias = "krishnajobs";
 const keyPassword = "Krishna@123";
 const storePassword = "Krishna@123";
 const keystoreFile = "krishna-jobs-release.keystore";
-
+const path = require("path");
 const command = `
 keytool -genkeypair \
 -v \
@@ -21,6 +21,7 @@ keytool -genkeypair \
 try {
   execSync(command, { stdio: "inherit" });
   console.log("\n✅ Keystore generated successfully!");
+  console.log("📁 Keystore Path:", path.resolve(keystoreFile));
 } catch (err) {
   console.error("❌ Failed to generate keystore.");
 }
