@@ -45,7 +45,7 @@ export default function Login() {
             <ShieldCheck className="text-primary" size={28} />
           </div>
           <h1 className="text-2xl font-extrabold">Admin Console</h1>
-          <p className="text-sm text-muted">Job India · sign in to continue</p>
+          <p className="text-sm text-muted">Kishan Solutions · sign in to continue</p>
         </div>
 
         {step === 'phone' ? (

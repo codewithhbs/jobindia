@@ -11,7 +11,7 @@ export function SidebarContent({ onNavigate }) {
           <Briefcase className="h-4.5 w-4.5" />
         </div>
         <div className="leading-tight">
-          <p className="text-sm font-semibold">Job India</p>
+          <p className="text-sm font-semibold">Kishan Solutions</p>
           <p className="text-[11px] text-sidebar-foreground/50">Admin Console</p>
         </div>
       </div>
@@ -51,7 +51,7 @@ export function SidebarContent({ onNavigate }) {
 
       <div className="p-3 border-t border-sidebar-border shrink-0">
         <p className="px-3 text-[11px] text-sidebar-foreground/40">
-          © {new Date().getFullYear()} Job India
+          © {new Date().getFullYear()} Kishan Solutions
         </p>
       </div>
     </div>
