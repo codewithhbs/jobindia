@@ -21,7 +21,7 @@ const findOrCreateUser = async (phone, role = ROLES.JOBSEEKER) => {
   // Welcome notification for brand-new registrations (queued — non-blocking).
   enqueueSingle({
     userId: user._id,
-    title: 'Welcome to Job India 👋',
+    title: 'Welcome to Kishan Solutions 👋',
     body: 'Your account is ready. Complete your profile to get started.',
     category: 'system',
     data: { type: 'welcome', role },

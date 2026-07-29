@@ -64,7 +64,7 @@ export default function LoginPage() {
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Briefcase className="h-5.5 w-5.5" />
           </div>
-          <h1 className="text-lg font-semibold">Job India Admin Console</h1>
+          <h1 className="text-lg font-semibold">Kishan Solutions Admin Console</h1>
           <p className="text-sm text-muted-foreground">Sign in with your admin phone number</p>
         </div>
 
