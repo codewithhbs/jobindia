@@ -8,6 +8,8 @@ export const API = {
   },
   users: {
     list: (params) => api.get('/users', { params }).then((r) => r.data),
+    getOne: (id) => api.get(`/users/${id}`).then((r) => r.data),
+
     stats: () => unwrap(api.get('/users/stats/overview')),
     setStatus: (id, isActive) => unwrap(api.put(`/users/${id}/status`, { isActive })),
   },

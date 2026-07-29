@@ -18,7 +18,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined', { stream: { write: (m) => logger.info(m.trim()) } }));
 
 // Locally-stored uploads (avatars, docs, resumes, onboarding images)
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use(
+  "/uploads",
+  express.static(path.resolve(__dirname, "../uploads"))
+);
 
 // API
 app.use('/', routes);

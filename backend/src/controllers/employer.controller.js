@@ -141,6 +141,7 @@ exports.upsertProfileAdmin = catchAsync(async (req, res) => {
   const allowed = [ 
     'companyName', 'industry', 'companySize', 'website', 'description',
     'foundedYear', 'contactPerson', 'gstNumber', 'panNumber', 'address',
+    'verificationStatus', 'subscriptionPlan', 'subscriptionExpiry', 'jobPostLimit',
   ];
   for (const key of allowed) {
     if (req.body[key] !== undefined) {
@@ -151,12 +152,22 @@ exports.upsertProfileAdmin = catchAsync(async (req, res) => {
   }
   if (req.uploadedFiles?.companyLogo) profile.companyLogo = req.uploadedFiles.companyLogo;
 
+  // Admin document review (approve/reject existing documents by their _id)
+  if (req.body.documentReviews) {
+    const reviews = typeof req.body.documentReviews === 'string'
+      ? JSON.parse(req.body.documentReviews)
+      : req.body.documentReviews;
+    for (const r of reviews || []) {
+      const doc = profile.documents.id(r.documentId);
+      if (doc) doc.verificationStatus = r.status;
+    }
+  }
 
   await profile.save();
 
   // Mark account complete once a company name is set
   if (profile.companyName) {
-    await User.findByIdAndUpdate(req.user.userId, { isProfileComplete: true });
+    await User.findByIdAndUpdate(req.params.id, { isProfileComplete: true });
   }
   ok(res, profile, 'Company profile updated');
 });
