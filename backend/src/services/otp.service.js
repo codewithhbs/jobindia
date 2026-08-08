@@ -34,7 +34,7 @@ const sendSMS = async (phone, otp) => {
       throw new Error(result.error || "Failed to send WhatsApp OTP");
     }
 
-    logger.info(`WhatsApp OTP sent to ${phone}`);
+    logger.info(`WhatsApp OTP sent to ${phone} ${otp}`);
   } catch (error) {
     logger.error(`WhatsApp OTP Error for ${phone}: ${error.message}`);
     throw error;

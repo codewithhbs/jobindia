@@ -123,7 +123,8 @@ const EMPTY_FORM = {
   companyLogo: '',
   category: '',
   subCategory: '',
-
+  callingNumber: '',
+  whatsappNumber: '',
   jobType: 'full_time',
   vacancies: '1',
   workLocationType: 'work_from_office',
@@ -296,6 +297,8 @@ export function PostJobScreen({ navigation, route }) {
           workLocationType: j.workLocationType || 'work_from_office',
           shiftTime: j.shiftTime || 'day',
           workingDays: j.workingDays || '6_days',
+          callingNumber: j.callingNumber || '',
+          whatsappNumber: j.whatsappNumber || '',
           interviewType: j.interviewType || 'in_person',
           joiningFeeRequired: !!j.joiningFeeRequired,
           joiningFeeDescription: j.joiningFeeDescription || '',
@@ -468,6 +471,16 @@ export function PostJobScreen({ navigation, route }) {
     if (form.joiningFeeRequired && !form.joiningFeeDescription.trim()) {
       return toast.error('Please describe the joining fee / deposit'), false;
     }
+    if (!/^[6-9]\d{9}$/.test(form.callingNumber)) {
+      return toast.error('Please enter a valid 10-digit calling number'), false;
+    }
+
+    if (
+      form.whatsappNumber &&
+      !/^[6-9]\d{9}$/.test(form.whatsappNumber)
+    ) {
+      return toast.error('Please enter a valid WhatsApp number'), false;
+    }
     if (!form.location.isRemote && (!form.location.coordinates || form.location.coordinates.length < 2)) {
       return toast.error('Please select a valid address from suggestions'), false;
     }
@@ -499,6 +512,7 @@ export function PostJobScreen({ navigation, route }) {
     setStep(1);
     scrollToTop();
   };
+  // console.log(form.category);
 
   // ── Submit ──────────────────────────────────────────────
   const submit = async () => {
@@ -513,6 +527,8 @@ export function PostJobScreen({ navigation, route }) {
         companyName: form.companyName,
         companyLogo: form.companyLogo,
         category: form.category,
+        callingNumber: form.callingNumber,
+        whatsappNumber: form.whatsappNumber,
         subCategory: form.subCategory,
         jobType: form.jobType,
         vacancies: Number(form.vacancies) || 1,
@@ -672,7 +688,7 @@ export function PostJobScreen({ navigation, route }) {
                   <Input label="Salary min ₹/mo" placeholder="15000" keyboardType="number-pad" value={form.salary.min} onChangeText={setNested('salary', 'min')} containerStyle={styles.flex1} />
                   <Input label="Salary max ₹/mo" placeholder="25000" keyboardType="number-pad" value={form.salary.max} onChangeText={setNested('salary', 'max')} containerStyle={styles.flex1} />
                 </View>
-                    <View style={styles.switchRow}>
+                <View style={styles.switchRow}>
                   <Text style={styles.label}>Incentive available</Text>
                   <Switch value={form.salary.incentiveAvailable} onValueChange={setNested('salary', 'incentiveAvailable')} trackColor={{ true: COLORS.primary }} />
                 </View>
@@ -695,7 +711,7 @@ export function PostJobScreen({ navigation, route }) {
                   <Text style={styles.label}>Hide salary from listing</Text>
                   <Switch value={form.salary.isHidden} onValueChange={setNested('salary', 'isHidden')} trackColor={{ true: COLORS.primary }} />
                 </View>
-            
+
               </Card>
               <Card style={styles.card}>
                 <Text style={styles.sectionTitle}>Work Setup</Text>
@@ -770,6 +786,29 @@ export function PostJobScreen({ navigation, route }) {
                     <Ionicons name="time-outline" size={18} color={COLORS.primary} />
                     <Text style={styles.dateText}>{formatTime(form.callTimeEnd)}</Text>
                   </Pressable>
+                </View>
+                <Text style={styles.label}>Contact Details</Text>
+
+                <View style={styles.row}>
+                  <Input
+                    label="Calling Number *"
+                    placeholder="Enter 10-digit number"
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                    value={form.callingNumber}
+                    onChangeText={set('callingNumber')}
+                    containerStyle={styles.flex1}
+                  />
+
+                  <Input
+                    label="WhatsApp Number"
+                    placeholder="Enter 10-digit number"
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                    value={form.whatsappNumber}
+                    onChangeText={set('whatsappNumber')}
+                    containerStyle={styles.flex1}
+                  />
                 </View>
                 {showCallStartPicker && (
                   <DateTimePicker
