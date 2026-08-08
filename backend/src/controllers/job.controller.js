@@ -74,6 +74,8 @@ exports.createJob = async (req, res, next) => {
       category,
       subCategory,
       salary,
+      callingNumber,
+      whatsappNumber,
       location,
       requirements,
       vacancies,
@@ -250,6 +252,8 @@ exports.createJob = async (req, res, next) => {
       applicationDeadline,
       workLocationType,
       shiftTime,
+      callingNumber,
+      whatsappNumber,
       workingDays,
       interviewType,
       joiningFeeRequired,
@@ -999,6 +1003,10 @@ exports.updateJob = async (req, res, next) => {
           ? undefined
           : Number(updateData.featuredOrder);
     }
+
+
+    if (typeof updateData.callingNumber === "string") updateData.callingNumber = updateData.callingNumber.trim();
+    if (typeof updateData.whatsappNumber === "string") updateData.whatsappNumber = updateData.whatsappNumber.trim();
 
     // ── Strings: trim title/description if present ──
     if (typeof updateData.title === "string") updateData.title = updateData.title.trim();

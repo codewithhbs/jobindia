@@ -166,9 +166,16 @@ export default function JobDetailScreen({ route, navigation }) {
   const [reportReason, setReportReason] = useState('');
   const [sendingReport, setSendingReport] = useState(false);
   const account = profile?.userId ?? authUser ?? null;
-  const callNumber = companyPhone || settings?.support_phone || '+911234567890';
+  const ep = job?.employerProfile || {};
+  const companyName = ep.companyName || job?.companyName;
+  const companyLogo = ep.companyLogo
+    ? (ep.companyLogo.startsWith('http') ? ep.companyLogo : `${BASE_API_URL || ''}${ep.companyLogo}`)
+    : job?.companyLogo;
+  const companyPhone = job?.callingNumber || ep.contactPerson?.phone || job?.companyPhone;
   const reportEmail = settings?.support_email || 'support@example.com';
-  const whatsappNumber = settings?.whatsapp_number || callNumber;
+  const callNumber = companyPhone || settings?.support_phone || '+911234567890';
+  const whatsappNumber = job?.whatsappNumber || callNumber || settings?.whatsapp_number;
+
   const appStoreUrl = Platform.OS === 'ios'
     ? (settings?.app_store_url || '')
     : (settings?.play_store_url || settings?.app_store_url || '');
@@ -379,13 +386,6 @@ export default function JobDetailScreen({ route, navigation }) {
     checkResumeThenApply();
   };
 
-  // ✅ company info now lives under employerProfile (real API shape)
-  const ep = job.employerProfile || {};
-  const companyName = ep.companyName || job.companyName;
-  const companyLogo = ep.companyLogo
-    ? (ep.companyLogo.startsWith('http') ? ep.companyLogo : `${BASE_API_URL || ''}${ep.companyLogo}`)
-    : job.companyLogo;
-  const companyPhone = ep.contactPerson?.phone || job.companyPhone;
 
   const hasCompany = !!(companyName || companyPhone);
 

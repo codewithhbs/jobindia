@@ -33,7 +33,7 @@ const toDateInput = (d) => (d ? new Date(d).toISOString().slice(0, 10) : "");
 const EMPTY = {
   title: "", description: "", employerName: "", companyName: "", companyLogo: "",
   category: "", subCategory: "", jobType: "full_time",
-
+  callingNumber: "", whatsappNumber: "",
   salary: { min: "", max: "", currency: "INR", period: "monthly", isNegotiable: false, isHidden: false, incentiveAvailable: false, incentiveDescription: "" },
 
   location: { address: "", city: "", state: "", country: "India", pincode: "", isRemote: false, latitude: "", longitude: "" },
@@ -79,74 +79,79 @@ export default function JobFormPage() {
     queryFn: () => categoriesApi.list({ isActive: true }).then((r) => r.data.data),
   });
 
-  const { data: existing, isLoading } = useQuery({
-    queryKey: ["job-full", id],
-    queryFn: () => jobsApi.getFullById(id).then((r) => r.data.data.job),
-    enabled: isEdit,
-  });
-
+const { data: existing, isLoading } = useQuery({
+  queryKey: ["job-full", id],
+  queryFn: () => jobsApi.getFullById(id).then((r) => r.data.data), // full { job, employerProfile }
+  enabled: isEdit,
+});
   useEffect(() => {
+    if (!existing?.job) return;
     if (existing) {
+      const job = existing?.job;
+      const emp = existing.employerProfile;
+
       setForm({
-        title: existing.title || "",
-        description: existing.description || "",
-        employerName: existing.employerName || "",
-        companyName: existing.companyName || "",
-        companyLogo: existing.companyLogo || "",
-        category: existing.category || "",
-        subCategory: existing.subCategory || "",
-        jobType: existing.jobType || "full_time",
+        title: job.title || "",
+        description: job.description || "",
+        employerName: job.employerName || emp?.contactPerson?.name || "",
+        companyName: job.companyName || emp?.companyName || "",
+        companyLogo: job.companyLogo || emp?.companyLogo || "",
+        category: job.category || "",
+        subCategory: job.subCategory || "",
+        callingNumber: existing.callingNumber || "",     // <-- add
+        whatsappNumber: existing.whatsappNumber || "",   // <-- add
+        jobType: job.jobType || "full_time",
         salary: {
-          min: existing.salary?.min ?? "", max: existing.salary?.max ?? "",
-          currency: existing.salary?.currency || "INR", period: existing.salary?.period || "monthly",
-          isNegotiable: !!existing.salary?.isNegotiable, isHidden: !!existing.salary?.isHidden,
-          incentiveAvailable: !!existing.salary?.incentiveAvailable, incentiveDescription: existing.salary?.incentiveDescription || "",
+          min: job.salary?.min ?? "", max: job.salary?.max ?? "",
+          currency: job.salary?.currency || "INR", period: job.salary?.period || "monthly",
+          isNegotiable: !!job.salary?.isNegotiable, isHidden: !!job.salary?.isHidden,
+          incentiveAvailable: !!job.salary?.incentiveAvailable, incentiveDescription: job.salary?.incentiveDescription || "",
         },
         location: {
-          address: existing.location?.address || "", city: existing.location?.city || "",
-          state: existing.location?.state || "", country: existing.location?.country || "India",
-          pincode: existing.location?.pincode || "", isRemote: !!existing.location?.isRemote,
-          latitude: existing.location?.coordinates?.[1] ?? "", longitude: existing.location?.coordinates?.[0] ?? "",
+          address: job.location?.address || "", city: job.location?.city || "",
+          state: job.location?.state || "", country: job.location?.country || "India",
+          pincode: job.location?.pincode || "", isRemote: !!job.location?.isRemote,
+          latitude: job.location?.coordinates?.[1] ?? "", longitude: job.location?.coordinates?.[0] ?? "",
         },
-        workLocationType: existing.workLocationType || "work_from_office",
-        shiftTime: existing.shiftTime || "day",
-        workingDays: existing.workingDays || "6_days",
-        interviewType: existing.interviewType || "in_person",
-        joiningFeeRequired: !!existing.joiningFeeRequired,
-        joiningFeeDescription: existing.joiningFeeDescription || "",
-        maritalStatus: existing.maritalStatus || "both",
-        callTimeStart: toLocalInput(existing.callTimeStart),
-        callTimeEnd: toLocalInput(existing.callTimeEnd),
+        workLocationType: job.workLocationType || "work_from_office",
+        shiftTime: job.shiftTime || "day",
+        workingDays: job.workingDays || "6_days",
+        interviewType: job.interviewType || "in_person",
+        joiningFeeRequired: !!job.joiningFeeRequired,
+        joiningFeeDescription: job.joiningFeeDescription || "",
+        maritalStatus: job.maritalStatus || "both",
+        callTimeStart: toLocalInput(job.callTimeStart),
+        callTimeEnd: toLocalInput(job.callTimeEnd),
         requirements: {
           experience: {
-            min: existing.requirements?.experience?.min ?? 0,
-            max: existing.requirements?.experience?.max ?? "",
-            unit: existing.requirements?.experience?.unit || "years",
-            isFresher: !!existing.requirements?.experience?.isFresher,
+            min: job.requirements?.experience?.min ?? 0,
+            max: job.requirements?.experience?.max ?? "",
+            unit: job.requirements?.experience?.unit || "years",
+            isFresher: !!job.requirements?.experience?.isFresher,
           },
-          education: existing.requirements?.education || "",
-          skills: existing.requirements?.skills || [],
-          languages: existing.requirements?.languages || [],
-          licenseRequired: !!existing.requirements?.licenseRequired,
-          licenseType: existing.requirements?.licenseType || [],
-          vehicleRequired: !!existing.requirements?.vehicleRequired,
-          vehicleType: existing.requirements?.vehicleType || [],
-          gender: existing.requirements?.gender || "any",
-          ageMin: existing.requirements?.ageMin ?? "",
-          ageMax: existing.requirements?.ageMax ?? "",
+          education: job.requirements?.education || "",
+          skills: job.requirements?.skills || [],
+          languages: job.requirements?.languages || [],
+          licenseRequired: !!job.requirements?.licenseRequired,
+          licenseType: job.requirements?.licenseType || [],
+          vehicleRequired: !!job.requirements?.vehicleRequired,
+          vehicleType: job.requirements?.vehicleType || [],
+          gender: job.requirements?.gender || "any",
+          ageMin: job.requirements?.ageMin ?? "",
+          ageMax: job.requirements?.ageMax ?? "",
         },
-        vacancies: existing.vacancies ?? 1,
-        applicationDeadline: toDateInput(existing.applicationDeadline),
-        expiryDate: toDateInput(existing.expiryDate),
-        tags: existing.tags || [],
-        benefits: existing.benefits || [],
-        status: existing.status || "paused",
-        isFeatured: !!existing.isFeatured,
-        featuredUntil: toDateInput(existing.featuredUntil),
-        featuredOrder: existing.featuredOrder ?? "",
+        vacancies: job.vacancies ?? 1,
+        applicationDeadline: toDateInput(job.applicationDeadline),
+        expiryDate: toDateInput(job.expiryDate),
+        tags: job.tags || [],
+        benefits: job.benefits || [],
+        status: job.status || "paused",
+        isFeatured: !!job.isFeatured,
+        featuredUntil: toDateInput(job.featuredUntil),
+        featuredOrder: job.featuredOrder ?? "",
       });
     }
-  }, [existing]);
+  }, [existing, id]);
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -413,6 +418,14 @@ export default function JobFormPage() {
                 <div className="space-y-1.5">
                   <Label>Call time end</Label>
                   <Input type="datetime-local" value={form.callTimeEnd} onChange={(e) => set({ callTimeEnd: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Calling number</Label>
+                  <Input type="tel" maxLength={10} value={form.callingNumber} onChange={(e) => set({ callingNumber: e.target.value })} placeholder="9632587410" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>WhatsApp number</Label>
+                  <Input type="tel" maxLength={10} value={form.whatsappNumber} onChange={(e) => set({ whatsappNumber: e.target.value })} placeholder="9698521470" />
                 </div>
               </div>
               <div className="space-y-1.5">

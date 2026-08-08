@@ -28,7 +28,7 @@ Open http://localhost:5173
 
 | Variable | Description | Default |
 |---|---|---|
-| `VITE_API_BASE_URL` | Base URL of the backend API, **including** `/api/v1` | `http://localhost:4000/api/v1` |
+| `VITE_API_BASE_URL` | Base URL of the backend API, **including** `/api/v1` | `http://localhost:4120/api/v1` |
 | `VITE_ASSET_BASE_URL` | Base URL used to resolve relative upload paths returned by the backend (e.g. `/uploads/...`). Optional — auto-derived from `VITE_API_BASE_URL` by stripping `/api/v1` if not set. | — |
 
 ## Authentication

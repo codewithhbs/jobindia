@@ -17,16 +17,25 @@ const jobSchema = new mongoose.Schema({
   },
 
   salary: {
-  min: Number,
-  max: Number,
-  currency: { type: String, default: 'INR' },
-  period: { type: String, enum: ['hourly', 'daily', 'monthly', 'yearly'], default: 'monthly' },
-  isNegotiable: { type: Boolean, default: false },
-  isHidden: { type: Boolean, default: false },
-  incentiveAvailable: { type: Boolean, default: false },   // ✅ new
-  incentiveDescription: { type: String, default: '' }      // ✅ new (optional detail, e.g. "₹2000/month on target")
-},
+    min: Number,
+    max: Number,
+    currency: { type: String, default: 'INR' },
+    period: { type: String, enum: ['hourly', 'daily', 'monthly', 'yearly'], default: 'monthly' },
+    isNegotiable: { type: Boolean, default: false },
+    isHidden: { type: Boolean, default: false },
+    incentiveAvailable: { type: Boolean, default: false },   // ✅ new
+    incentiveDescription: { type: String, default: '' }      // ✅ new (optional detail, e.g. "₹2000/month on target")
+  },
 
+  callingNumber: {
+    type: String,
+    trim: true,
+  },
+
+  whatsappNumber: {
+    type: String,
+    trim: true,
+  },
   location: {
     type: { type: String, enum: ['Point'] },
     coordinates: { type: [Number], required: false, default: undefined }, // [lng, lat]
@@ -66,10 +75,10 @@ const jobSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-joiningFeeDescription:{
+  joiningFeeDescription: {
     type: String,
-    default:''
-},
+    default: ''
+  },
   maritalStatus: {
     type: String,
     enum: ['married', 'unmarried', 'both'],
@@ -95,11 +104,11 @@ joiningFeeDescription:{
   },
   requirements: {
     experience: {
-    min: { type: Number, default: 0 },
-    max: Number,
-    unit: { type: String, enum: ['months', 'years'], default: 'years' },
-    isFresher: { type: Boolean, default: false }   // ✅ new
-  },
+      min: { type: Number, default: 0 },
+      max: Number,
+      unit: { type: String, enum: ['months', 'years'], default: 'years' },
+      isFresher: { type: Boolean, default: false }   // ✅ new
+    },
     education: String,
     skills: [String],
     languages: [String],
