@@ -32,7 +32,7 @@ exports.upsertProfile = catchAsync(async (req, res) => {
   }
   if (req.uploadedFiles?.companyLogo) profile.companyLogo = req.uploadedFiles.companyLogo;
 
-  profile.verificationStatus = "pending"
+  profile.verificationStatus = "approved"
   await profile.save();
 
   // Mark account complete once a company name is set
@@ -59,13 +59,13 @@ exports.uploadDocuments = catchAsync(async (req, res, next) => {
         fileUrl: file.fileUrl,
         fileType: file.fileType,
         uploadedAt: new Date(),
-        verificationStatus: 'pending',
+        verificationStatus: 'approved',
       };
       if (existingIdx >= 0) profile.documents[existingIdx] = doc;
       else profile.documents.push(doc);
     }
   }
-  profile.verificationStatus = 'pending';
+  profile.verificationStatus = 'approved';
   await profile.save();
   ok(res, profile.documents, 'Documents uploaded');
 });

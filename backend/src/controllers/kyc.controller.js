@@ -22,11 +22,11 @@ exports.submitDocument = catchAsync(async (req, res) => {
   if (!submission.documents.some((d) => d.toString() === doc._id.toString())) {
     submission.documents.push(doc._id);
   }
-  submission.overallStatus = 'pending';
+  submission.overallStatus = 'approved';
   submission.submittedAt = new Date();
   await submission.save();
 
-  await User.findByIdAndUpdate(userId, { kycStatus: 'pending' });
+  await User.findByIdAndUpdate(userId, { kycStatus: 'approved' });
 
   ok(res, doc, 'Document submitted for verification', 201);
 });

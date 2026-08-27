@@ -66,7 +66,7 @@ if (isBikeAvailable !== undefined) profile.isBikeAvailable = isBikeAvailable ===
       fileUrl: file.fileUrl,
       fileType: file.fileType,
       uploadedAt: new Date(),
-      verificationStatus: 'pending',
+      verificationStatus: 'approved',
     };
   };
 
@@ -202,7 +202,7 @@ exports.adminUpdateProfile = catchAsync(async (req, res, next) => {
       fileUrl: file.fileUrl,
       fileType: file.fileType,
       uploadedAt: new Date(),
-      verificationStatus: 'pending',
+      verificationStatus: 'approved',
     };
   };
   const newDocs = [
