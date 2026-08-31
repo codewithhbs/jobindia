@@ -72,7 +72,7 @@ function formatLocationDisplay(location) {
 function experienceLabel(exp) {
   if (!exp) return 'Any experience';
   const { min, max, unit = 'years', isFresher } = exp;
-  if (isFresher) return 'Fresher';           // ✅ new
+  if (isFresher) return 'Fresher';
   if (!min && !max) return 'Fresher';
   if (min && max) return `${min}–${max} ${unit} experience`;
   if (min) return `${min}+ ${unit} experience`;
@@ -95,7 +95,6 @@ function isWithinCallWindow(job) {
   return nowMin >= startMin && nowMin < endMin;
 }
 
-// ── Days left/expired for expiry countdown ──
 function daysUntil(d) {
   if (!d) return null;
   const target = new Date(d);
@@ -189,10 +188,6 @@ export default function JobDetailScreen({ route, navigation }) {
 
   const isDriver = account?.role === 'driver';
   const isEmployer = account?.role === 'employer';
-
-  // ✅ driver gate: KYC status based
-  const isKYCVerified = !!account?.isKYCVerified;
-  const kycStatus = account?.kycStatus; // 'pending' | 'rejected' | 'approved'
 
   const submitReport = async () => {
     if (!reportReason.trim()) {
@@ -292,101 +287,37 @@ export default function JobDetailScreen({ route, navigation }) {
     }
   };
 
-  // ✅ resume step sirf jobseeker ke liye, driver direct apply
-  const checkResumeThenApply = () => {
-    if (isDriver) {
-      apply();
-      return;
-    }
-
-    const hasResume = !!profile?.resume?.uploadedAt;
-
-    if (!hasResume) {
-      Alert.show({
-        variant: 'info',
-        icon: 'document-attach-outline',
-        title: 'Add your resume',
-        message: 'Upload a CV so this employer can review your application properly. This only takes a few seconds.',
-        buttons: [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Upload Resume', style: 'primary', onPress: pickResumeAndApply },
-        ],
-      });
-      return;
-    }
-
+const checkResumeThenApply = () => {
+  if (isDriver) {
     apply();
-  };
+    return;
+  }
 
-  // ✅ driver -> kyc screen, others -> EditProfile
-  const goToCompleteProfile = () => {
-    if (isDriver) {
+  const hasResume = !!profile?.resume?.uploadedAt;
 
-      navigation.navigate('Kyc');
-    } else {
-      navigation.navigate('EditProfile');
-    }
-  };
+  if (hasResume) {
+    apply();
+    return;
+  }
 
-  const handleApplyPress = () => {
-    if (!profile) return; // wait for the profile fetch to resolve
+  // No resume — nudge, but never block. Both paths end in an application.
+  Alert.show({
+    variant: 'info',
+    icon: 'document-attach-outline',
+    title: 'Add your resume?',
+    message:
+      'Employers review applications with a CV much faster. You can still apply without one and add it later.',
+    buttons: [
+      { text: 'Apply without resume', style: 'cancel', onPress: apply },
+      { text: 'Upload Resume', style: 'primary', onPress: pickResumeAndApply },
+    ],
+  });
+};
 
-    if (isDriver) {
-      // driver: KYC status based gate, no % completeness
-      if (!isKYCVerified) {
-        if (kycStatus === 'rejected') {
-          Alert.show({
-            variant: 'error',
-            icon: 'close-circle-outline',
-            title: 'KYC Rejected',
-            message: 'Your KYC verification was rejected. Please resubmit your documents to apply for jobs.',
-            buttons: [
-              { text: 'Later', style: 'cancel' },
-              { text: 'Resubmit KYC', style: 'primary', onPress: () => navigation.navigate('kyc') },
-            ],
-          });
-        } else {
-          // pending or not submitted
-          Alert.show({
-            variant: 'warning',
-            icon: 'time-outline',
-            title: 'KYC Pending',
-            message: 'Your KYC verification is still under review. You can apply once it’s approved.',
-            buttons: [
-              { text: 'OK', style: 'cancel' },
-              { text: 'View KYC', style: 'primary', onPress: () => navigation.navigate('kyc') },
-            ],
-          });
-        }
-        return;
-      }
-
-      checkResumeThenApply();
-      return;
-    }
-
-    // jobseeker: profile completeness % based flow
-    const isProfileComplete = account?.isProfileComplete;
-    const completeness = profile.profileCompleteness ?? 0;
-
-    if (!isProfileComplete || completeness < 70) {
-      Alert.show({
-        variant: 'warning',
-        icon: 'person-circle-outline',
-        title: 'Complete your profile',
-        message: `Your profile is only ${completeness}% complete. A complete profile gets noticed faster by employers — finish it before applying, or continue for now.`,
-        buttons: [
-          { text: 'Later', style: 'cancel', onPress: checkResumeThenApply },
-          { text: 'Complete Profile', style: 'primary', onPress: goToCompleteProfile },
-        ],
-      });
-      return;
-    }
-
-    checkResumeThenApply();
-  };
-
-
+const handleApplyPress = () => {
+  if (!profile) return;
+  checkResumeThenApply();
+};
   const hasCompany = !!(companyName || companyPhone);
 
   const handleCall = () => {
@@ -402,6 +333,7 @@ export default function JobDetailScreen({ route, navigation }) {
     }
     Linking.openURL(`tel:${callNumber}`).catch(() => toast.error('Could not open dialer'));
   };
+
   const handleWhatsapp = async () => {
     const phone = whatsappNumber.replace(/\D/g, ""); // Remove spaces, +, etc.
     const url = `whatsapp://send?phone=91${phone}`;
@@ -414,23 +346,18 @@ export default function JobDetailScreen({ route, navigation }) {
       toast.error("WhatsApp is not installed");
     }
   };
+
   const typeLabel = JOB_TYPES.find((t) => t.value === job.jobType)?.label || job.jobType;
   const req = job.requirements || {};
   const expiry = expiryMeta(job.expiryDate);
   const educationText = educationLabel(req.education);
   const qualificationText = req.qualification && req.qualification !== 'any' ? req.qualification.replace(/_/g, ' ') : null;
 
-  // ✅ banner: driver -> KYC based, jobseeker -> % based
-  const showCompletenessBanner = isDriver
-    ? !isKYCVerified
-    : (!!profile && !account?.isProfileComplete);
-
   const applyBusy = applying || uploadingResume;
   const callEnabled = isWithinCallWindow(job);
   return (
     <Screen edges={['top']} noPadding>
 
-      {/* ✅ Free job notice */}
       <Header
         title="Job Details"
         onBack={() => navigation.goBack()}
@@ -447,27 +374,10 @@ export default function JobDetailScreen({ route, navigation }) {
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {showCompletenessBanner && (
-          <Pressable
-            onPress={goToCompleteProfile}
-            style={({ pressed }) => [styles.completeBanner, pressed && { opacity: 0.9 }]}
-          >
-            <Ionicons name="alert-circle" size={18} color={COLORS.accent} />
-            <Text style={styles.completeBannerText}>
-              {isDriver
-                ? (kycStatus === 'rejected'
-                  ? 'Your KYC was rejected — resubmit to apply for jobs'
-                  : 'Your KYC is pending review — you can apply once approved')
-                : `Your profile is ${profile?.profileCompleteness ?? 0}% complete — finish it to apply faster`}
-            </Text>
-            <Ionicons name="chevron-forward" size={16} color={COLORS.accent} />
-          </Pressable>
-        )}
         <View style={styles.freeNotice}>
           <Ionicons name="shield-checkmark-outline" size={16} color={COLORS.success} />
           <Text style={styles.freeNoticeText}>This job is free. Don't pay any money to anyone.</Text>
         </View>
-        {/* ✅ Expiry / deadline banner */}
         {expiry && (
           <View style={[styles.expiryBanner, { backgroundColor: `${expiry.color}14`, borderColor: `${expiry.color}33` }]}>
             <Ionicons name="time-outline" size={16} color={expiry.color} />
@@ -495,7 +405,6 @@ export default function JobDetailScreen({ route, navigation }) {
             {ep.verificationStatus === 'approved' ? <Badge label="Verified company" color={COLORS.success} /> : null}
           </View>
 
-          {/* views / applications mini-row */}
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <Ionicons name="eye-outline" size={14} color={COLORS.textLight} />
@@ -520,7 +429,6 @@ export default function JobDetailScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* ✅ Company details card — real employerProfile data */}
         <View style={styles.card}>
           {hasCompany ? (
             <>
@@ -728,9 +636,6 @@ export default function JobDetailScreen({ route, navigation }) {
               </View>
             ) : null}
 
-
-
-
             {job.shiftTime ? (
               <View style={styles.bullet}>
                 <Ionicons name="moon-outline" size={16} color={COLORS.text} />
@@ -776,28 +681,6 @@ export default function JobDetailScreen({ route, navigation }) {
             ) : null}
           </Section>
         ) : null}
-
-        {/* ✅ Posting info — published / deadline / expiry dates together */}
-        {/* <Section title="Posting Info">
-          {job.publishedAt ? (
-            <View style={styles.bullet}>
-              <Ionicons name="checkmark-done-outline" size={16} color={COLORS.text} />
-              <Text style={styles.body}>Published: {formatDateDisplay(job.publishedAt)}</Text>
-            </View>
-          ) : null}
-          {job.applicationDeadline ? (
-            <View style={styles.bullet}>
-              <Ionicons name="hourglass-outline" size={16} color={COLORS.text} />
-              <Text style={styles.body}>Apply by: {formatDateDisplay(job.applicationDeadline)}</Text>
-            </View>
-          ) : null}
-          {job.expiryDate ? (
-            <View style={styles.bullet}>
-              <Ionicons name="close-circle-outline" size={16} color={COLORS.text} />
-              <Text style={styles.body}>Listing closes: {formatDateDisplay(job.expiryDate)}</Text>
-            </View>
-          ) : null}
-        </Section> */}
       </ScrollView>
 
       {!isEmployer && (
@@ -887,18 +770,6 @@ function Stat({ icon, label, value }) {
 
 const styles = StyleSheet.create({
   scroll: { padding: SPACING.lg, gap: SPACING.lg, paddingBottom: 120 },
-
-  completeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.warningLight,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: '#F3DDAF',
-    padding: SPACING.md,
-  },
-  completeBannerText: { flex: 1, fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.text },
 
   expiryBanner: {
     flexDirection: 'row',
